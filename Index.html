@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flowchart Builder</title>
+<style>
+  * { box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #f0f4f8;
+    font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+    display: flex; justify-content: center; align-items: flex-start;
+  }
+  .app {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #d1d5db;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 1000px;
+    margin: 20px auto;
+  }
+  .toolbar {
+    display: flex; gap: 10px; align-items: center;
+    padding: 0 0 16px 0;
+    flex-wrap: wrap;
+  }
+  .toolbar button {
+    background: #4f46e5;
+    border: none;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .toolbar button:hover { background: #4338ca; }
+  .toolbar button.copy-btn { background: #10b981; }
+  .toolbar button.copy-btn:hover { background: #059669; }
+  .toolbar button.reset-btn { background: #ef4444; }
+  .toolbar button.reset-btn:hover { background: #dc2626; }
+  
+  .label-editor {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8fafc;
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+  }
+  .label-editor span {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #64748b;
+  }
+  .label-editor input {
+    border: none;
+    background: transparent;
+    padding: 6px;
+    font-size: 0.95rem;
+    outline: none;
+    width: 140px;
+    color: #1e293b;
+  }
+  .label-editor input:disabled {
+    color: #94a3b8;
+    cursor: not-allowed;
+  }
+
+  /* Scrollable Canvas Wrapper */
+  .canvas-wrap {
+    position: relative;
+    width: 100%;
+    height: 70vh; /* Takes up most of the screen height */
+    background: #ffffff;
+    border: 2px solid #cbd5e1;
+    border-radius: 8px;
+    overflow: auto; /* Adds scrollbars for the big canvas */
+  }
+  canvas {
+    display: block;
+    cursor: grab;
+    touch-action: none;
+  }
+  canvas:active { cursor: grabbing; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="toolbar">
+    <button class="copy-btn" id="copySelectedBtn" type="button">📋 Copy</button>
+    <button class="reset-btn" id="resetBtn" type="button">⟲ Reset</button>
+    
+    <div class="label-editor">
+      <span>Label:</span>
+      <input type="text" id="textInput" placeholder="Select a shape..." disabled>
+    </div>
+  </div>
+  
+  <div class="canvas-wrap" id="canvasWrap">
+    <!-- Expanded Canvas Size: 1600 x 1000 -->
+    <canvas id="shapeCanvas" width="1600" height="1000"></canvas>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var canvas = document.getElementById("shapeCanvas");
+  var ctx = canvas.getContext("2d");
+  var textInput = document.getElementById("textInput");
+
+  var shapes = [];
+  var selectedId = null;
+  var nextId = 1;
+
+  function genId() { return nextId++; }
+
+  // ---------- Hit Tests ----------
+  function pointInCircle(px, py, cx, cy, r) {
+    var dx = px - cx, dy = py - cy;
+    return dx * dx + dy * dy <= r * r;
+  }
+  function pointInRect(px, py, rx, ry, rw, rh) {
+    return px >= rx && px <= rx + rw && py >= ry && py <= ry + rh;
+  }
+  function pointInDiamond(px, py, cx, cy, hw, hh) {
+    return Math.abs(px - cx) / hw + Math.abs(py - cy) / hh <= 1;
+  }
+  function pointInParallelogram(px, py, x, y, w, h, skew) {
+    if (py < y || py > y + h) return false;
+    var t = (py - y) / h;
+    var leftX  = (x + skew) + (x - (x + skew)) * t;
+    var rightX = (x + w)    + ((x + w - skew) - (x + w)) * t;
+    return px >= leftX && px <= rightX;
+  }
+  function pointInRoundedRect(px, py, x, y, w, h, r) {
+    if (px < x || px > x + w || py < y || py > y + h) return false;
+    if (px >= x + r && px <= x + w - r) return true;
+    if (py >= y + r && py <= y + h - r) return true;
+    var cx = (px < x + r) ? x + r : x + w - r;
+    var cy = (py < y + r) ? y + r : y + h - r;
+    var dx = px - cx, dy = py - cy;
+    return dx * dx + dy * dy <= r * r;
+  }
+  function pointInArrow(px, py, x1, y1, x2, y2) {
+    var minX = Math.min(x1, x2) - 15;
+    var maxX = Math.max(x1, x2) + 15;
+    var minY = Math.min(y1, y2) - 15;
+    var maxY = Math.max(y1, y2) + 15;
+    return px >= minX && px <= maxX && py >= minY && py <= maxY;
+  }
+
+  function getShapeAt(x, y) {
+    for (var i = shapes.length - 1; i >= 0; i--) {
+      var s = shapes[i];
+      if (s.type === "arrow" && pointInArrow(x, y, s.x1, s.y1, s.x2, s.y2)) return s;
+      if (s.type === "start_end" && pointInRoundedRect(x, y, s.x, s.y, s.w, s.h, s.r)) return s;
+      if (s.type === "process" && pointInRect(x, y, s.x, s.y, s.w, s.h)) return s;
+      if (s.type === "decision" && pointInDiamond(x, y, s.cx, s.cy, s.hw, s.hh)) return s;
+      if (s.type === "data" && pointInParallelogram(x, y, s.x, s.y, s.w, s.h, s.skew)) return s;
+      if (s.type === "predefined" && pointInRect(x, y, s.x, s.y, s.w, s.h)) return s;
+      if (s.type === "connector" && pointInCircle(x, y, s.cx, s.cy, s.r)) return s;
+    }
+    return null;
+  }
+
+  function moveShape(shape, dx, dy) {
+    if (shape.type === "connector" || shape.type === "decision") { shape.cx += dx; shape.cy += dy; }
+    else if (shape.type === "arrow") { shape.x1 += dx; shape.y1 += dy; shape.x2 += dx; shape.y2 += dy; }
+    else { shape.x += dx; shape.y += dy; }
+  }
+
+  function copyShape(shape) {
+    var clone = JSON.parse(JSON.stringify(shape));
+    clone.id = genId();
+    if (clone.label) clone.label += " (copy)";
+    var OFF = 20;
+    if (clone.type === "connector" || clone.type === "decision") { clone.cx += OFF; clone.cy += OFF; }
+    else if (clone.type === "arrow") { clone.x1 += OFF; clone.y1 += OFF; clone.x2 += OFF; clone.y2 += OFF; }
+    else { clone.x += OFF; clone.y += OFF; }
+    return clone;
+  }
+
+  function addShape(shape) { shapes.push(shape); }
+
+  // ---------- Initial Scene ----------
+  function resetScene() {
+    shapes = [];
+    nextId = 1;
+    selectedId = null;
+
+    var strokeColor = "#1f2937"; 
+    var lineWidth = 4;
+
+    // Centered layout for the new 1600x1000 canvas
+    var centerX = 700;
+    var startY = 50;
+
+    // 1. Start/End
+    addShape({ id: genId(), type: "start_end", x: centerX, y: startY, w: 200, h: 60, r: 30, 
+               fill: "#e0f2fe", stroke: strokeColor, lineWidth: lineWidth, label: "Start" });
+
+    addShape({ id: genId(), type: "arrow", x1: centerX + 100, y1: startY + 60, x2: centerX + 100, y2: startY + 105, 
+               fill: strokeColor, stroke: strokeColor, lineWidth: 3, label: "" });
+
+    // 2. Process
+    addShape({ id: genId(), type: "process", x: centerX - 10, y: startY + 110, w: 220, h: 70, 
+               fill: "#fef3c7", stroke: strokeColor, lineWidth: lineWidth, label: "Do Something" });
+
+    addShape({ id: genId(), type: "arrow", x1: centerX + 100, y1: startY + 180, x2: centerX + 100, y2: startY + 225, 
+               fill: strokeColor, stroke: strokeColor, lineWidth: 3, label: "" });
+
+    // 3. Decision
+    addShape({ id: genId(), type: "decision", cx: centerX + 100, cy: startY + 290, hw: 100, hh: 65, 
+               fill: "#fce7f3", stroke: strokeColor, lineWidth: lineWidth, label: "Is it\nTrue?" });
+
+    addShape({ id: genId(), type: "arrow", x1: centerX + 200, y1: startY + 290, x2: centerX + 270, y2: startY + 290, 
+               fill: strokeColor, stroke: strokeColor, lineWidth: 3, label: "Yes" });
+
+    // 4. Data
+    addShape({ id: genId(), type: "data", x: centerX + 280, y: startY + 260, w: 170, h: 60, skew: 25, 
+               fill: "#dcfce7", stroke: strokeColor, lineWidth: lineWidth, label: "Input / Output" });
+
+    addShape({ id: genId(), type: "arrow", x1: centerX, y1: startY + 290, x2: centerX - 70, y2: startY + 290, 
+               fill: strokeColor, stroke: strokeColor, lineWidth: 3, label: "No" });
+
+    // 5. Predefined Process
+    addShape({ id: genId(), type: "predefined", x: centerX - 270, y: startY + 255, w: 200, h: 70, 
+               fill: "#f3e8ff", stroke: strokeColor, lineWidth: lineWidth, label: "Subroutine" });
+
+    addShape({ id: genId(), type: "arrow", x1: centerX + 100, y1: startY + 355, x2: centerX + 100, y2: startY + 400, 
+               fill: strokeColor, stroke: strokeColor, lineWidth: 3, label: "" });
+
+    // 6. Connector
+    addShape({ id: genId(), type: "connector", cx: centerX + 100, cy: startY + 445, r: 35, 
+               fill: "#ffffff", stroke: strokeColor, lineWidth: lineWidth, label: "A" });
+
+    draw();
+  }
+
+  // ---------- Drawing Helpers ----------
+  function roundedRectPath(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function drawArrowHead(x, y, angle, size, color) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-size, -size * 0.6);
+    ctx.lineTo(-size, size * 0.6);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawLabel(shape) {
+    if (!shape.label) return;
+    
+    ctx.save();
+    ctx.fillStyle = "#1e293b"; 
+    ctx.font = "600 15px system-ui, 'Segoe UI', Roboto, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    var cx = 0, cy = 0;
+    if (shape.type === "connector" || shape.type === "decision") {
+      cx = shape.cx; cy = shape.cy;
+    } else if (shape.type === "arrow") {
+      cx = (shape.x1 + shape.x2) / 2;
+      cy = (shape.y1 + shape.y2) / 2 - 12;
+    } else {
+      cx = shape.x + shape.w / 2;
+      cy = shape.y + shape.h / 2;
+    }
+
+    var lines = shape.label.split('\n');
+    var lineHeight = 20;
+    var startY = cy - ((lines.length - 1) * lineHeight) / 2;
+
+    for (var i = 0; i < lines.length; i++) {
+      if (shape.type === "arrow") {
+        var textWidth = ctx.measureText(lines[i]).width;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(cx - textWidth/2 - 2, startY + (i * lineHeight) - 8, textWidth + 4, 16);
+        ctx.fillStyle = "#1e293b";
+      }
+      ctx.fillText(lines[i], cx, startY + (i * lineHeight));
+    }
+    ctx.restore();
+  }
+
+  function drawShape(shape, isSelected) {
+    ctx.save();
+    ctx.lineWidth = shape.lineWidth || 3;
+    ctx.strokeStyle = shape.stroke || "#1f2937";
+    ctx.fillStyle = shape.fill || "#ffffff";
+    ctx.lineJoin = "round";
+
+    if (shape.type === "start_end") {
+      roundedRectPath(shape.x, shape.y, shape.w, shape.h, shape.r);
+      ctx.fill(); ctx.stroke();
+    }
+    else if (shape.type === "process") {
+      ctx.beginPath(); ctx.rect(shape.x, shape.y, shape.w, shape.h);
+      ctx.fill(); ctx.stroke();
+      ctx.lineWidth = 1.5; ctx.strokeRect(shape.x + 6, shape.y + 6, shape.w - 12, shape.h - 12);
+    }
+    else if (shape.type === "decision") {
+      ctx.beginPath();
+      ctx.moveTo(shape.cx, shape.cy - shape.hh);
+      ctx.lineTo(shape.cx + shape.hw, shape.cy);
+      ctx.lineTo(shape.cx, shape.cy + shape.hh);
+      ctx.lineTo(shape.cx - shape.hw, shape.cy);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+    else if (shape.type === "data") {
+      ctx.beginPath();
+      ctx.moveTo(shape.x + shape.skew, shape.y);
+      ctx.lineTo(shape.x + shape.w, shape.y);
+      ctx.lineTo(shape.x + shape.w - shape.skew, shape.y + shape.h);
+      ctx.lineTo(shape.x, shape.y + shape.h);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+    else if (shape.type === "predefined") {
+      ctx.beginPath(); ctx.rect(shape.x, shape.y, shape.w, shape.h);
+      ctx.fill(); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(shape.x + 25, shape.y); ctx.lineTo(shape.x + 25, shape.y + shape.h);
+      ctx.moveTo(shape.x + shape.w - 25, shape.y); ctx.lineTo(shape.x + shape.w - 25, shape.y + shape.h);
+      ctx.stroke();
+    }
+    else if (shape.type === "connector") {
+      ctx.beginPath(); ctx.arc(shape.cx, shape.cy, shape.r, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+    }
+    else if (shape.type === "arrow") {
+      ctx.beginPath(); ctx.moveTo(shape.x1, shape.y1); ctx.lineTo(shape.x2, shape.y2);
+      ctx.lineWidth = 3; ctx.strokeStyle = shape.fill; ctx.stroke();
+      var angle = Math.atan2(shape.y2 - shape.y1, shape.x2 - shape.x1);
+      drawArrowHead(shape.x2, shape.y2, angle, 15, shape.fill);
+    }
+
+    drawLabel(shape);
+
+    if (isSelected) {
+      ctx.lineWidth = 2.5; ctx.strokeStyle = "#3b82f6"; ctx.setLineDash([6, 4]);
+      if (shape.type === "connector") {
+        ctx.beginPath(); ctx.arc(shape.cx, shape.cy, shape.r + 6, 0, Math.PI * 2); ctx.stroke();
+      }
+      else if (shape.type === "decision") {
+        ctx.beginPath();
+        ctx.moveTo(shape.cx, shape.cy - shape.hh - 6);
+        ctx.lineTo(shape.cx + shape.hw + 6, shape.cy);
+        ctx.lineTo(shape.cx, shape.cy + shape.hh + 6);
+        ctx.lineTo(shape.cx - shape.hw - 6, shape.cy);
+        ctx.closePath(); ctx.stroke();
+      }
+      else if (shape.type === "arrow") {
+        ctx.beginPath(); ctx.moveTo(shape.x1, shape.y1); ctx.lineTo(shape.x2, shape.y2); ctx.stroke();
+      }
+      else if (shape.type === "data") {
+        ctx.beginPath();
+        ctx.moveTo(shape.x + shape.skew - 5, shape.y - 5);
+        ctx.lineTo(shape.x + shape.w + 5, shape.y - 5);
+        ctx.lineTo(shape.x + shape.w - shape.skew + 5, shape.y + shape.h + 5);
+        ctx.lineTo(shape.x - 5, shape.y + shape.h + 5);
+        ctx.closePath(); ctx.stroke();
+      }
+      else {
+        roundedRectPath(shape.x - 6, shape.y - 6, shape.w + 12, shape.h + 12, 8); ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
+    ctx.restore();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Grid background
+    ctx.save();
+    ctx.strokeStyle = "#e2e8f0"; ctx.lineWidth = 1;
+    for (var x = 0; x < canvas.width; x += 20) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
+    for (var y = 0; y < canvas.height; y += 20) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }
+    ctx.restore();
+
+    for (var i = 0; i < shapes.length; i++) {
+      drawShape(shapes[i], shapes[i].id === selectedId);
+    }
+  }
+
+  // ---------- Interaction ----------
+  function getCanvasCoords(evt) {
+    var rect = canvas.getBoundingClientRect();
+    var scaleX = canvas.width / rect.width;
+    var scaleY = canvas.height / rect.height;
+    return { x: (evt.clientX - rect.left) * scaleX, y: (evt.clientY - rect.top) * scaleY };
+  }
+
+  var dragging = false;
+  var dragShapeId = null;
+  var lastX = 0, lastY = 0;
+
+  function updateInputState() {
+    if (selectedId === null) {
+      textInput.value = "";
+      textInput.disabled = true;
+      textInput.placeholder = "Select a shape...";
+    } else {
+      var shape = shapes.find(s => s.id === selectedId);
+      if (shape) {
+        textInput.value = shape.label || "";
+        textInput.disabled = false;
+        textInput.placeholder = "Type label...";
+      }
+    }
+  }
+
+  function onDown(evt) {
+    evt.preventDefault();
+    var p = getCanvasCoords(evt);
+    var shape = getShapeAt(p.x, p.y);
+    
+    if (shape) {
+      selectedId = shape.id;
+      var idx = shapes.indexOf(shape);
+      if (idx > -1) { shapes.splice(idx, 1); shapes.push(shape); } // Bring to front
+      
+      dragging = true; dragShapeId = shape.id; lastX = p.x; lastY = p.y;
+      if (canvas.setPointerCapture && evt.pointerId !== undefined) {
+        try { canvas.setPointerCapture(evt.pointerId); } catch (e) {}
+      }
+    } else {
+      selectedId = null; dragging = false;
+    }
+    updateInputState();
+    draw();
+  }
+
+  function onMove(evt) {
+    if (!dragging || dragShapeId === null) return;
+    evt.preventDefault();
+    var p = getCanvasCoords(evt);
+    var dx = p.x - lastX, dy = p.y - lastY;
+    if (dx === 0 && dy === 0) return;
+
+    var shape = shapes.find(s => s.id === dragShapeId);
+    if (shape) {
+      moveShape(shape, dx, dy);
+      lastX = p.x; lastY = p.y;
+      draw();
+    }
+  }
+
+  function onUp() {
+    if (!dragging) return;
+    dragging = false; dragShapeId = null;
+    draw();
+  }
+
+  canvas.addEventListener("pointerdown", onDown);
+  canvas.addEventListener("pointermove", onMove);
+  canvas.addEventListener("pointerup", onUp);
+  canvas.addEventListener("pointercancel", onUp);
+  canvas.addEventListener("pointerleave", onUp);
+
+  textInput.addEventListener("input", function(e) {
+    if (selectedId === null) return;
+    var shape = shapes.find(s => s.id === selectedId);
+    if (shape) {
+      shape.label = e.target.value;
+      draw();
+    }
+  });
+
+  textInput.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") textInput.blur();
+  });
+
+  // ---------- Buttons ----------
+  document.getElementById("copySelectedBtn").addEventListener("click", function() {
+    if (selectedId === null) return;
+    var original = shapes.find(s => s.id === selectedId);
+    if (!original) return;
+    
+    var clone = copyShape(original);
+    shapes.push(clone);
+    selectedId = clone.id;
+    updateInputState();
+    draw();
+  });
+
+  document.getElementById("resetBtn").addEventListener("click", resetScene);
+
+  // ---------- Boot ----------
+  resetScene();
+})();
+</script>
+</body>
+</html>
