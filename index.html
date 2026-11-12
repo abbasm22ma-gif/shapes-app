@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flowchart Builder & Exam Practice</title>
+<style>
+  * { box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #f0f4f8;
+    font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+    display: flex; justify-content: center; align-items: flex-start;
+  }
+  .app {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #d1d5db;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 1400px;
+    margin: 20px auto;
+  }
+  .toolbar {
+    display: flex; gap: 10px; align-items: center;
+    padding: 0 0 16px 0;
+    flex-wrap: wrap;
+  }
+  .toolbar button, .toolbar select {
+    background: #4f46e5;
+    border: none;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .toolbar select { background: #1e293b; padding: 10px 15px; outline: none; }
+  .toolbar button:hover { background: #4338ca; }
+  .toolbar button.reset-btn { background: #ef4444; }
+  .toolbar button.reset-btn:hover { background: #dc2626; }
+  .toolbar button.check-btn { background: #10b981; }
+  .toolbar button.check-btn:hover { background: #059669; }
+  
+  .toolbar button.close-btn {
+    background: #64748b;
+    margin-left: auto; 
+    align-self: center;
+    border-left: 2px solid #cbd5e1;
+    padding-left: 20px;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+  }
+  .toolbar button.close-btn:hover { background: #475569; }
+  
+  .add-tools {
+    display: flex;
+    gap: 8px;
+    margin-left: 10px;
+    padding-left: 10px;
+    border-left: 2px solid #cbd5e1;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .add-tools button {
+    background: #f8fafc;
+    color: #1e293b;
+    border: 1px solid #cbd5e1;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    box-shadow: none;
+  }
+  .add-tools button:hover { background: #e2e8f0; }
+  
+  .add-tools button.label-btn { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+  .add-tools button.label-btn:hover { background: #d1fae5; }
+
+  .label-editor {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8fafc;
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+  }
+  .label-editor span { font-size: 0.85rem; font-weight: 600; color: #64748b; }
+  .label-editor input[type="text"] {
+    border: none; background: transparent; padding: 6px;
+    font-size: 0.95rem; outline: none; width: 140px; color: #1e293b;
+  }
+  .label-editor input[type="text"]:disabled { color: #94a3b8; cursor: not-allowed; }
+
+  .rotate-control {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    background: #eff6ff;
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: 1px solid #bfdbfe;
+  }
+  .rotate-control span { font-size: 0.85rem; font-weight: 600; color: #1e40af; }
+  .rotate-control input[type="range"] { width: 100px; cursor: pointer; }
+
+  /* Main Layout */
+  .main-area {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+  }
+
+  /* Side panel for questions */
+  .question-panel {
+    width: 350px;
+    background: #f8fafc;
+    border: 2px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 20px;
+    display: none; /* Hidden by default */
+    flex-direction: column;
+    gap: 15px;
+    flex-shrink: 0;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  }
+  .question-panel h3 { margin: 0; color: #1e293b; font-size: 1.1rem; border-bottom: 2px solid #cbd5e1; padding-bottom: 10px; }
+  .question-panel p { margin: 0; font-size: 0.9rem; color: #475569; line-height: 1.5; }
+  .question-panel ul { margin: 0; padding-left: 20px; font-size: 0.9rem; color: #475569; line-height: 1.5; }
+  .question-panel li { margin-bottom: 6px; }
+
+  .canvas-wrap {
+    position: relative;
+    flex-grow: 1;
+    height: 75vh;
+    background: #ffffff;
+    border: 2px solid #cbd5e1;
+    border-radius: 8px;
+    overflow: auto;
+  }
+  canvas {
+    display: block;
+    cursor: grab;
+    touch-action: none;
+  }
+  canvas:active { cursor: grabbing; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="toolbar">
+    <!-- Challenge Mode Dropdown -->
+    <select id="challengeSelect">
+      <option value="none">-- Practice Mode (No Marking) --</option>
+      <option value="q1">Q1: Support Cost (5 marks)</option>
+      <option value="q2">Q2: Network Connectivity (6 marks)</option>
+      <option value="q3">Q3: Data Storage (7 marks)</option>
+      <option value="q4">Q4: Login PIN (8 marks)</option>
+      <option value="q5">Q5: Network Performance (9 marks)</option>
+    </select>
+    
+    <button class="check-btn" id="checkBtn" type="button" style="display: none;">✓ Check Answer</button>
+    <button class="reset-btn" id="resetBtn" type="button">⟲ Reset Canvas</button>
+    
+    <div class="add-tools">
+      <button id="addStartEnd">+ Terminator</button>
+      <button id="addProcess">+ Process</button>
+      <button id="addPredefined">+ Sub-process</button>
+      <button id="addDecision">+ Decision</button>
+      <button id="addData">+ Input/Output</button>
+      <button id="addConnector">+ Connector</button>
+      <button id="addArrow">+ Arrow</button>
+      <button id="addYes" class="label-btn">+ Yes</button>
+      <button id="addNo" class="label-btn">+ No</button>
+    </div>
+
+    <div class="label-editor">
+      <span>Label:</span>
+      <input type="text" id="textInput" placeholder="Select a shape..." disabled>
+    </div>
+    
+    <div class="rotate-control" id="rotateControl">
+      <span>Rotate:</span>
+      <input type="range" id="rotateSlider" min="0" max="360" value="0">
+    </div>
+
+    <button class="close-btn" id="closeBtn" type="button">✕ Close Tab</button>
+  </div>
+  
+  <div class="main-area">
+    <!-- Side Panel for Instructions -->
+    <div class="question-panel" id="questionPanel">
+      <h3 id="qTitle">Question Title</h3>
+      <p id="qDesc">Description...</p>
+      <div id="qRules"></div>
+    </div>
+
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="shapeCanvas" width="1600" height="1200"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var canvas = document.getElementById("shapeCanvas");
+  var ctx = canvas.getContext("2d");
+  var textInput = document.getElementById("textInput");
+  var rotateControl = document.getElementById("rotateControl");
+  var rotateSlider = document.getElementById("rotateSlider");
+  
+  var challengeSelect = document.getElementById("challengeSelect");
+  var questionPanel = document.getElementById("questionPanel");
+  var checkBtn = document.getElementById("checkBtn");
+
+  var shapes = [];
+  var selectedId = null;
+  var nextId = 1;
+  var currentChallenge = "none";
+  
+  // Store which shapes were marked correct after checking
+  var correctShapeIds = new Set();
+
+  function genId() { return nextId++; }
+
+  // ---------- Helper: Check if a label contains any of the required keywords ----------
+  function labelHas(shape, keywords) {
+    if (!shape.label) return false;
+    var l = shape.label.toLowerCase();
+    for (var i = 0; i < keywords.length; i++) {
+      if (l.includes(keywords[i].toLowerCase())) return true;
+    }
+    return false;
+  }
+
+  // ---------- Questions Data ----------
+  var questionsData = {
+    q1: {
+      title: "Q1: Calculating a support cost",
+      desc: "The company charges £25 per hour. Input the hours, calculate total (hours * 25), output total, and end.",
+      rules: "<strong>Requirements:</strong><br><ul><li>Input symbol with text like 'hours'</li><li>Process symbol with text '25' or '*'</li><li>Output symbol with text 'total' or 'cost'</li><li>Start and End terminators</li></ul>",
+      check: function(shapes) {
+        var results = [];
+        
+        // 1. Check Start
+        var start = shapes.find(s => s.type === "start_end" && labelHas(s, ["start", "begin"]));
+        if (start) { correctShapeIds.add(start.id); results.push({ text: "Start Terminator", pass: true }); }
+        else { results.push({ text: "Start Terminator", pass: false }); }
+
+        // 2. Check Input (Hours)
+        var input = shapes.find(s => s.type === "data" && labelHas(s, ["hour"]));
+        if (input) { correctShapeIds.add(input.id); results.push({ text: "Input for Hours", pass: true }); }
+        else { results.push({ text: "Input for Hours (missing or wrong text)", pass: false }); }
+
+        // 3. Check Process (Calculation)
+        var calc = shapes.find(s => s.type === "process" && labelHas(s, ["25", "*", "x"]));
+        if (calc) { correctShapeIds.add(calc.id); results.push({ text: "Process calculation (* 25)", pass: true }); }
+        else { results.push({ text: "Process calculation (* 25)", pass: false }); }
+
+        // 4. Check Output (Total)
+        var output = shapes.find(s => s.type === "data" && labelHas(s, ["total", "cost"]));
+        if (output) { correctShapeIds.add(output.id); results.push({ text: "Output for Total Cost", pass: true }); }
+        else { results.push({ text: "Output for Total Cost", pass: false }); }
+
+        // 5. Check End
+        var end = shapes.find(s => s.type === "start_end" && labelHas(s, ["end", "stop"]));
+        if (end) { correctShapeIds.add(end.id); results.push({ text: "End Terminator", pass: true }); }
+        else { results.push({ text: "End Terminator", pass: false }); }
+
+        return results;
+      }
+    },
+    q2: {
+      title: "Q2: Checking network connectivity",
+      desc: "Check if connection is working. If Yes -> 'Connection successful'. If No -> 'Check network cable'.",
+      rules: "<strong>Requirements:</strong><br><ul><li>Decision checking 'connection' or 'working'</li><li>Yes/No text labels</li><li>Output: 'Connection successful'</li><li>Output: 'Check network cable'</li></ul>",
+      check: function(shapes) {
+        var results = [];
+        
+        var dec = shapes.find(s => s.type === "decision" && labelHas(s, ["connection", "working", "connect"]));
+        if (dec) { correctShapeIds.add(dec.id); results.push({ text: "Decision for checking connection", pass: true }); }
+        else { results.push({ text: "Decision for checking connection", pass: false }); }
+
+        var yes = shapes.find(s => labelHas(s, ["yes"]));
+        if (yes) { correctShapeIds.add(yes.id); results.push({ text: "'Yes' label", pass: true }); }
+        else { results.push({ text: "'Yes' label", pass: false }); }
+
+        var no = shapes.find(s => labelHas(s, ["no"]));
+        if (no) { correctShapeIds.add(no.id); results.push({ text: "'No' label", pass: true }); }
+        else { results.push({ text: "'No' label", pass: false }); }
+
+        var success = shapes.find(s => s.type === "data" && labelHas(s, ["successful", "success"]));
+        if (success) { correctShapeIds.add(success.id); results.push({ text: "Output: 'Connection successful'", pass: true }); }
+        else { results.push({ text: "Output: 'Connection successful'", pass: false }); }
+
+        var cable = shapes.find(s => s.type === "data" && labelHas(s, ["cable", "check"]));
+        if (cable) { correctShapeIds.add(cable.id); results.push({ text: "Output: 'Check network cable'", pass: true }); }
+        else { results.push({ text: "Output: 'Check network cable'", pass: false }); }
+
+        return results;
+      }
+    },
+    q3: {
+      title: "Q3: Calculating data storage",
+      desc: "Input current data and additional data. Calculate total. Check if total > 500. Output 'Large capacity' or 'Standard storage'.",
+      rules: "<strong>Requirements:</strong><br><ul><li>Two Input symbols (current/additional)</li><li>Process symbol calculating total</li><li>Decision checking against 500</li><li>Outputs for 'Large' and 'Standard'</li></ul>",
+      check: function(shapes) {
+        var results = [];
+        
+        var inputs = shapes.filter(s => s.type === "data" && labelHas(s, ["current", "additional", "data", "input"]));
+        if (inputs.length >= 2) {
+          inputs.forEach(i => correctShapeIds.add(i.id));
+          results.push({ text: "Two Input shapes", pass: true });
+        } else {
+          results.push({ text: "Two Input shapes (found " + inputs.length + ")", pass: false });
+        }
+
+        var calc = shapes.find(s => s.type === "process" && labelHas(s, ["total", "+", "add"]));
+        if (calc) { correctShapeIds.add(calc.id); results.push({ text: "Process to calculate Total", pass: true }); }
+        else { results.push({ text: "Process to calculate Total", pass: false }); }
+
+        var dec = shapes.find(s => s.type === "decision" && labelHas(s, ["500", "exceed", ">"]));
+        if (dec) { correctShapeIds.add(dec.id); results.push({ text: "Decision checking > 500GB", pass: true }); }
+        else { results.push({ text: "Decision checking > 500GB", pass: false }); }
+
+        var large = shapes.find(s => s.type === "data" && labelHas(s, ["large"]));
+        if (large) { correctShapeIds.add(large.id); results.push({ text: "Output: 'Large capacity...'", pass: true }); }
+        else { results.push({ text: "Output: 'Large capacity...'", pass: false }); }
+
+        var standard = shapes.find(s => s.type === "data" && labelHas(s, ["standard"]));
+        if (standard) { correctShapeIds.add(standard.id); results.push({ text: "Output: 'Standard storage...'", pass: true }); }
+        else { results.push({ text: "Output: 'Standard storage...'", pass: false }); }
+
+        return results;
+      }
+    },
+    q4: {
+      title: "Q4: Validating a login PIN",
+      desc: "Input PIN. Check if exactly 4 digits. If invalid -> 'Invalid PIN' and loop. If valid -> 'PIN accepted'.",
+      rules: "<strong>Requirements:</strong><br><ul><li>Input symbol for PIN</li><li>Decision checking length/4/digits</li><li>Outputs for 'Invalid PIN' and 'PIN accepted'</li></ul>",
+      check: function(shapes) {
+        var results = [];
+        
+        var input = shapes.find(s => s.type === "data" && labelHas(s, ["pin", "enter"]));
+        if (input) { correctShapeIds.add(input.id); results.push({ text: "Input for PIN", pass: true }); }
+        else { results.push({ text: "Input for PIN", pass: false }); }
+
+        var dec = shapes.find(s => s.type === "decision" && labelHas(s, ["length", "4", "digit", "valid"]));
+        if (dec) { correctShapeIds.add(dec.id); results.push({ text: "Decision checking 4 digits", pass: true }); }
+        else { results.push({ text: "Decision checking 4 digits", pass: false }); }
+
+        var invalid = shapes.find(s => s.type === "data" && labelHas(s, ["invalid"]));
+        if (invalid) { correctShapeIds.add(invalid.id); results.push({ text: "Output: 'Invalid PIN'", pass: true }); }
+        else { results.push({ text: "Output: 'Invalid PIN'", pass: false }); }
+
+        var accepted = shapes.find(s => s.type === "data" && labelHas(s, ["accepted", "valid"]));
+        if (accepted) { correctShapeIds.add(accepted.id); results.push({ text: "Output: 'PIN accepted'", pass: true }); }
+        else { results.push({ text: "Output: 'PIN accepted'", pass: false }); }
+
+        return results;
+      }
+    },
+    q5: {
+      title: "Q5: Monitoring network performance",
+      desc: "Total=0, Counter=1. Input time. Add to total. Counter++. Repeat 5 times. Calc average. Check > 100ms -> Poor/Acceptable.",
+      rules: "<strong>Requirements:</strong><br><ul><li>Init processes (Total=0, Counter=1)</li><li>Decision to loop until 5</li><li>Process calculating Average</li><li>Decision checking > 100ms</li><li>Outputs for 'Poor' and 'Acceptable'</li></ul>",
+      check: function(shapes) {
+        var results = [];
+        
+        var initTotal = shapes.find(s => s.type === "process" && labelHas(s, ["total", "0"]));
+        if (initTotal) { correctShapeIds.add(initTotal.id); results.push({ text: "Init: Total = 0", pass: true }); }
+        else { results.push({ text: "Init: Total = 0", pass: false }); }
+
+        var initCount = shapes.find(s => s.type === "process" && labelHas(s, ["counter", "1"]));
+        if (initCount) { correctShapeIds.add(initCount.id); results.push({ text: "Init: Counter = 1", pass: true }); }
+        else { results.push({ text: "Init: Counter = 1", pass: false }); }
+
+        var loop = shapes.find(s => s.type === "decision" && labelHas(s, ["counter", "5", "measurement"]));
+        if (loop) { correctShapeIds.add(loop.id); results.push({ text: "Decision to loop (Counter <= 5)", pass: true }); }
+        else { results.push({ text: "Decision to loop (Counter <= 5)", pass: false }); }
+
+        var avg = shapes.find(s => s.type === "process" && labelHas(s, ["average", "avg", "/"]));
+        if (avg) { correctShapeIds.add(avg.id); results.push({ text: "Process to calculate Average", pass: true }); }
+        else { results.push({ text: "Process to calculate Average", pass: false }); }
+
+        var dec100 = shapes.find(s => s.type === "decision" && labelHas(s, ["100", "average"]));
+        if (dec100) { correctShapeIds.add(dec100.id); results.push({ text: "Decision checking Average > 100", pass: true }); }
+        else { results.push({ text: "Decision checking Average > 100", pass: false }); }
+
+        var poor = shapes.find(s => s.type === "data" && labelHas(s, ["poor"]));
+        if (poor) { correctShapeIds.add(poor.id); results.push({ text: "Output: 'Network performance poor'", pass: true }); }
+        else { results.push({ text: "Output: 'Network performance poor'", pass: false }); }
+
+        var accept = shapes.find(s => s.type === "data" && labelHas(s, ["acceptable"]));
+        if (accept) { correctShapeIds.add(accept.id); results.push({ text: "Output: 'Network performance acceptable'", pass: true }); }
+        else { results.push({ text: "Output: 'Network performance acceptable'", pass: false }); }
+
+        return results;
+      }
+    }
+  };
+
+  // ---------- Hit Tests ----------
+  function pointInCircle(px, py, cx, cy, r) {
+    var dx = px - cx, dy = py - cy; return dx * dx + dy * dy <= r * r;
+  }
+  function pointInRect(px, py, rx, ry, rw, rh) {
+    return px >= rx && px <= rx + rw && py >= ry && py <= ry + rh;
+  }
+  function pointInDiamond(px, py, cx, cy, hw, hh) {
+    return Math.abs(px - cx) / hw + Math.abs(py - cy) / hh <= 1;
+  }
+  function pointInParallelogram(px, py, x, y, w, h, skew) {
+    if (py < y || py > y + h) return false;
+    var t = (py - y) / h;
+    var leftX  = (x + skew) + (x - (x + skew)) * t;
+    var rightX = (x + w)    + ((x + w - skew) - (x + w)) * t;
+    return px >= leftX && px <= rightX;
+  }
+  function pointInRoundedRect(px, py, x, y, w, h, r) {
+    if (px < x || px > x + w || py < y || py > y + h) return false;
+    if (px >= x + r && px <= x + w - r) return true;
+    if (py >= y + r && py <= y + h - r) return true;
+    var cx = (px < x + r) ? x + r : x + w - r;
+    var cy = (py < y + r) ? y + r : y + h - r;
+    var dx = px - cx, dy = py - cy; return dx * dx + dy * dy <= r * r;
+  }
+  function pointInArrow(px, py, x1, y1, x2, y2) {
+    var minX = Math.min(x1, x2) - 15, maxX = Math.max(x1, x2) + 15;
+    var minY = Math.min(y1, y2) - 15, maxY = Math.max(y1, y2) + 15;
+    return px >= minX && px <= maxX && py >= minY && py <= maxY;
+  }
+
+  function getShapeAt(x, y) {
+    for (var i = shapes.length - 1; i >= 0; i--) {
+      var s = shapes[i];
+      if (s.type === "arrow" && pointInArrow(x, y, s.x1, s.y1, s.x2, s.y2)) return s;
+      if (s.type === "start_end" && pointInRoundedRect(x, y, s.x, s.y, s.w, s.h, s.r)) return s;
+      if (s.type === "process" && pointInRect(x, y, s.x, s.y, s.w, s.h)) return s;
+      if (s.type === "decision" && pointInDiamond(x, y, s.cx, s.cy, s.hw, s.hh)) return s;
+      if (s.type === "data" && pointInParallelogram(x, y, s.x, s.y, s.w, s.h, s.skew)) return s;
+      if (s.type === "predefined" && pointInRect(x, y, s.x, s.y, s.w, s.h)) return s;
+      if (s.type === "connector" && pointInCircle(x, y, s.cx, s.cy, s.r)) return s;
+      if (s.type === "text_label" && pointInRect(x, y, s.x, s.y, s.w, s.h)) return s;
+    }
+    return null;
+  }
+
+  function moveShape(shape, dx, dy) {
+    if (shape.type === "connector" || shape.type === "decision") { shape.cx += dx; shape.cy += dy; }
+    else if (shape.type === "arrow") { shape.x1 += dx; shape.y1 += dy; shape.x2 += dx; shape.y2 += dy; }
+    else { shape.x += dx; shape.y += dy; }
+  }
+
+  // ---------- Create Factory Functions ----------
+  var defaultStroke = "#1f2937";
+  var defaultWidth = 4;
+
+  function makeStartEnd(x, y) {
+    return { id: genId(), type: "start_end", x: x - 100, y: y - 30, w: 200, h: 60, r: 30, 
+             fill: "#e0f2fe", stroke: defaultStroke, lineWidth: defaultWidth, label: "Start" };
+  }
+  function makeProcess(x, y) {
+    return { id: genId(), type: "process", x: x - 110, y: y - 35, w: 220, h: 70, 
+             fill: "#fef3c7", stroke: defaultStroke, lineWidth: defaultWidth, label: "Process" };
+  }
+  function makePredefined(x, y) {
+    return { id: genId(), type: "predefined", x: x - 100, y: y - 35, w: 200, h: 70, 
+             fill: "#f3e8ff", stroke: defaultStroke, lineWidth: defaultWidth, label: "Sub-process" };
+  }
+  function makeDecision(x, y) {
+    return { id: genId(), type: "decision", cx: x, cy: y, hw: 100, hh: 65, 
+             fill: "#fce7f3", stroke: defaultStroke, lineWidth: defaultWidth, label: "Decision?" };
+  }
+  function makeData(x, y) {
+    return { id: genId(), type: "data", x: x - 90, y: y - 35, w: 180, h: 70, skew: 25, 
+             fill: "#dcfce7", stroke: defaultStroke, lineWidth: defaultWidth, label: "Input/Output" };
+  }
+  function makeConnector(x, y) {
+    return { id: genId(), type: "connector", cx: x, cy: y, r: 40, 
+             fill: "#ffffff", stroke: defaultStroke, lineWidth: defaultWidth, label: "A" };
+  }
+  function makeArrow(x, y) {
+    return { id: genId(), type: "arrow", x1: x - 60, y1: y, x2: x + 60, y2: y, 
+             fill: defaultStroke, stroke: defaultStroke, lineWidth: 3, label: "" };
+  }
+  function makeTextLabel(x, y, text) {
+    return { id: genId(), type: "text_label", x: x - 30, y: y - 15, w: 60, h: 30, 
+             fill: "transparent", stroke: "transparent", label: text };
+  }
+
+  // ---------- Scene Management ----------
+  function resetScene() {
+    shapes = [];
+    nextId = 1;
+    selectedId = null;
+    correctShapeIds.clear();
+
+    if (currentChallenge === "none") {
+      var cx = 750, cy = 200;
+      var s1 = makeStartEnd(cx, cy); s1.label = "Start"; shapes.push(s1);
+      var a1 = makeArrow(cx, cy + 60); a1.y1 = cy + 60; a1.y2 = cy + 110; a1.x1 = cx; a1.x2 = cx; shapes.push(a1);
+      var s2 = makeProcess(cx, cy + 160); s2.label = "Do Something"; shapes.push(s2);
+      var a2 = makeArrow(cx, cy + 230); a2.y1 = cy + 230; a2.y2 = cy + 280; a2.x1 = cx; a2.x2 = cx; shapes.push(a2);
+      var s3 = makeDecision(cx, cy + 330); s3.label = "Is it True?"; shapes.push(s3);
+    }
+    draw();
+  }
+
+  // ---------- Drawing Helpers ----------
+  function roundedRectPath(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r); ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h); ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r); ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
+  }
+
+  function drawArrowHead(x, y, angle, size, color) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-size, -size * 0.6); ctx.lineTo(-size, size * 0.6);
+    ctx.closePath(); ctx.fillStyle = color; ctx.fill(); ctx.restore();
+  }
+
+  function drawLabel(shape) {
+    if (!shape.label) return;
+    ctx.save();
+    ctx.fillStyle = "#1e293b"; 
+    ctx.font = "600 15px system-ui, 'Segoe UI', Roboto, sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+
+    if (shape.type === "arrow") {
+      var cx = (shape.x1 + shape.x2) / 2; var cy = (shape.y1 + shape.y2) / 2;
+      var angle = Math.atan2(shape.y2 - shape.y1, shape.x2 - shape.x1);
+      ctx.translate(cx, cy); ctx.rotate(angle);
+      var lines = shape.label.split('\n'); var lineHeight = 20;
+      var startY = -16 - ((lines.length - 1) * lineHeight) / 2;
+      for (var i = 0; i < lines.length; i++) {
+        var textWidth = ctx.measureText(lines[i]).width;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(-textWidth/2 - 4, startY + (i * lineHeight) - 9, textWidth + 8, 18);
+        ctx.fillStyle = "#1e293b";
+        ctx.fillText(lines[i], 0, startY + (i * lineHeight));
+      }
+      ctx.restore(); return;
+    }
+
+    var cx = 0, cy = 0;
+    if (shape.type === "connector" || shape.type === "decision") { cx = shape.cx; cy = shape.cy; } 
+    else { cx = shape.x + shape.w / 2; cy = shape.y + shape.h / 2; }
+    var lines = shape.label.split('\n'); var lineHeight = 20;
+    var startY = cy - ((lines.length - 1) * lineHeight) / 2;
+    for (var i = 0; i < lines.length; i++) {
+      ctx.fillText(lines[i], cx, startY + (i * lineHeight));
+    }
+    ctx.restore();
+  }
+
+  function drawShape(shape, isSelected) {
+    ctx.save();
+    ctx.lineWidth = shape.lineWidth || 3;
+    ctx.strokeStyle = shape.stroke || "#1f2937";
+    ctx.fillStyle = shape.fill || "#ffffff";
+    ctx.lineJoin = "round";
+
+    // Draw the actual shape
+    if (shape.type === "start_end") {
+      roundedRectPath(shape.x, shape.y, shape.w, shape.h, shape.r); ctx.fill(); ctx.stroke();
+    } else if (shape.type === "process") {
+      ctx.beginPath(); ctx.rect(shape.x, shape.y, shape.w, shape.h); ctx.fill(); ctx.stroke();
+      ctx.lineWidth = 1.5; ctx.strokeRect(shape.x + 6, shape.y + 6, shape.w - 12, shape.h - 12);
+    } else if (shape.type === "decision") {
+      ctx.beginPath(); ctx.moveTo(shape.cx, shape.cy - shape.hh); ctx.lineTo(shape.cx + shape.hw, shape.cy);
+      ctx.lineTo(shape.cx, shape.cy + shape.hh); ctx.lineTo(shape.cx - shape.hw, shape.cy);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    } else if (shape.type === "data") {
+      ctx.beginPath(); ctx.moveTo(shape.x + shape.skew, shape.y); ctx.lineTo(shape.x + shape.w, shape.y);
+      ctx.lineTo(shape.x + shape.w - shape.skew, shape.y + shape.h); ctx.lineTo(shape.x, shape.y + shape.h);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    } else if (shape.type === "predefined") {
+      ctx.beginPath(); ctx.rect(shape.x, shape.y, shape.w, shape.h); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(shape.x + 25, shape.y); ctx.lineTo(shape.x + 25, shape.y + shape.h);
+      ctx.moveTo(shape.x + shape.w - 25, shape.y); ctx.lineTo(shape.x + shape.w - 25, shape.y + shape.h);
+      ctx.stroke();
+    } else if (shape.type === "connector") {
+      ctx.beginPath(); ctx.arc(shape.cx, shape.cy, shape.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    } else if (shape.type === "arrow") {
+      ctx.beginPath(); ctx.moveTo(shape.x1, shape.y1); ctx.lineTo(shape.x2, shape.y2);
+      ctx.lineWidth = 3; ctx.strokeStyle = shape.fill; ctx.stroke();
+      var angle = Math.atan2(shape.y2 - shape.y1, shape.x2 - shape.x1);
+      drawArrowHead(shape.x2, shape.y2, angle, 15, shape.fill);
+    }
+
+    drawLabel(shape);
+
+    // Draw Selection Ring
+    if (isSelected) {
+      ctx.lineWidth = 2.5; ctx.strokeStyle = "#3b82f6"; ctx.setLineDash([6, 4]);
+      if (shape.type === "connector") { ctx.beginPath(); ctx.arc(shape.cx, shape.cy, shape.r + 6, 0, Math.PI * 2); ctx.stroke(); }
+      else if (shape.type === "decision") {
+        ctx.beginPath(); ctx.moveTo(shape.cx, shape.cy - shape.hh - 6); ctx.lineTo(shape.cx + shape.hw + 6, shape.cy);
+        ctx.lineTo(shape.cx, shape.cy + shape.hh + 6); ctx.lineTo(shape.cx - shape.hw - 6, shape.cy); ctx.closePath(); ctx.stroke();
+      } else if (shape.type === "arrow") { ctx.beginPath(); ctx.moveTo(shape.x1, shape.y1); ctx.lineTo(shape.x2, shape.y2); ctx.stroke(); }
+      else if (shape.type === "data") {
+        ctx.beginPath(); ctx.moveTo(shape.x + shape.skew - 5, shape.y - 5); ctx.lineTo(shape.x + shape.w + 5, shape.y - 5);
+        ctx.lineTo(shape.x + shape.w - shape.skew + 5, shape.y + shape.h + 5); ctx.lineTo(shape.x - 5, shape.y + shape.h + 5); ctx.closePath(); ctx.stroke();
+      } else if (shape.type === "text_label") { ctx.strokeRect(shape.x - 4, shape.y - 4, shape.w + 8, shape.h + 8); }
+      else { roundedRectPath(shape.x - 6, shape.y - 6, shape.w + 12, shape.h + 12, 8); ctx.stroke(); }
+      ctx.setLineDash([]);
+    }
+
+    // Draw Correct Answer Tick
+    if (correctShapeIds.has(shape.id)) {
+      ctx.save();
+      ctx.strokeStyle = "#10b981"; // Green
+      ctx.lineWidth = 4;
+      // Draw a green glowing circle around the shape
+      ctx.beginPath();
+      if (shape.type === "connector" || shape.type === "decision") {
+        ctx.arc(shape.cx, shape.cy, (shape.r || shape.hw) + 15, 0, Math.PI * 2);
+      } else if (shape.type === "arrow") {
+        ctx.moveTo(shape.x1, shape.y1); ctx.lineTo(shape.x2, shape.y2);
+      } else {
+        ctx.rect(shape.x - 10, shape.y - 10, shape.w + 20, shape.h + 20);
+      }
+      ctx.stroke();
+      
+      // Draw a small green tick near the top right
+      var tickX = shape.x ? (shape.x + shape.w + 10) : (shape.cx + 20);
+      var tickY = shape.y ? (shape.y - 10) : (shape.cy - 20);
+      ctx.beginPath(); ctx.moveTo(tickX, tickY + 5); ctx.lineTo(tickX + 5, tickY + 10); ctx.lineTo(tickX + 15, tickY);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.strokeStyle = "#e2e8f0"; ctx.lineWidth = 1;
+    for (var x = 0; x < canvas.width; x += 20) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
+    for (var y = 0; y < canvas.height; y += 20) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }
+    ctx.restore();
+
+    for (var i = 0; i < shapes.length; i++) {
+      drawShape(shapes[i], shapes[i].id === selectedId);
+    }
+  }
+
+  // ---------- Interaction ----------
+  function getCanvasCoords(evt) {
+    var rect = canvas.getBoundingClientRect();
+    var scaleX = canvas.width / rect.width;
+    var scaleY = canvas.height / rect.height;
+    return { x: (evt.clientX - rect.left) * scaleX, y: (evt.clientY - rect.top) * scaleY };
+  }
+
+  var dragging = false, dragShapeId = null, lastX = 0, lastY = 0;
+
+  function updateInputState() {
+    if (selectedId === null) {
+      textInput.value = ""; textInput.disabled = true; textInput.placeholder = "Select a shape...";
+      rotateControl.style.display = "none";
+    } else {
+      var shape = shapes.find(s => s.id === selectedId);
+      if (shape) {
+        textInput.value = shape.label || ""; textInput.disabled = false; textInput.placeholder = "Type label...";
+        if (shape.type === "arrow") {
+          rotateControl.style.display = "flex";
+          var angleRad = Math.atan2(shape.y2 - shape.y1, shape.x2 - shape.x1);
+          var angleDeg = Math.round(angleRad * 180 / Math.PI);
+          if (angleDeg < 0) angleDeg += 360;
+          rotateSlider.value = angleDeg;
+        } else { rotateControl.style.display = "none"; }
+      }
+    }
+  }
+
+  function onDown(evt) {
+    evt.preventDefault();
+    var p = getCanvasCoords(evt);
+    var shape = getShapeAt(p.x, p.y);
+    
+    if (shape) {
+      selectedId = shape.id;
+      var idx = shapes.indexOf(shape);
+      if (idx > -1) { shapes.splice(idx, 1); shapes.push(shape); }
+      dragging = true; dragShapeId = shape.id; lastX = p.x; lastY = p.y;
+      if (canvas.setPointerCapture && evt.pointerId !== undefined) {
+        try { canvas.setPointerCapture(evt.pointerId); } catch (e) {}
+      }
+    } else { selectedId = null; dragging = false; }
+    updateInputState(); draw();
+  }
+
+  function onMove(evt) {
+    if (!dragging || dragShapeId === null) return;
+    evt.preventDefault();
+    var p = getCanvasCoords(evt);
+    var dx = p.x - lastX, dy = p.y - lastY;
+    if (dx === 0 && dy === 0) return;
+    var shape = shapes.find(s => s.id === dragShapeId);
+    if (shape) { moveShape(shape, dx, dy); lastX = p.x; lastY = p.y; draw(); }
+  }
+
+  function onUp() {
+    if (!dragging) return;
+    dragging = false; dragShapeId = null; draw();
+  }
+
+  canvas.addEventListener("pointerdown", onDown);
+  canvas.addEventListener("pointermove", onMove);
+  canvas.addEventListener("pointerup", onUp);
+  canvas.addEventListener("pointercancel", onUp);
+  canvas.addEventListener("pointerleave", onUp);
+
+  textInput.addEventListener("input", function(e) {
+    if (selectedId === null) return;
+    var shape = shapes.find(s => s.id === selectedId);
+    if (shape) { shape.label = e.target.value; draw(); }
+  });
+  textInput.addEventListener("keydown", function(e) { if (e.key === "Enter") textInput.blur(); });
+
+  rotateSlider.addEventListener("input", function(e) {
+    if (selectedId === null) return;
+    var shape = shapes.find(s => s.id === selectedId);
+    if (shape && shape.type === "arrow") {
+      var cx = (shape.x1 + shape.x2) / 2, cy = (shape.y1 + shape.y2) / 2;
+      var len = Math.hypot(shape.x2 - shape.x1, shape.y2 - shape.y1);
+      var halfLen = len / 2;
+      var angleDeg = parseFloat(e.target.value);
+      var angleRad = angleDeg * Math.PI / 180;
+      shape.x1 = cx - Math.cos(angleRad) * halfLen; shape.y1 = cy - Math.sin(angleRad) * halfLen;
+      shape.x2 = cx + Math.cos(angleRad) * halfLen; shape.y2 = cy + Math.sin(angleRad) * halfLen;
+      draw();
+    }
+  });
+
+  // ---------- Toolbar Events ----------
+  document.getElementById("resetBtn").addEventListener("click", resetScene);
+  document.getElementById("closeBtn").addEventListener("click", function() {
+    window.close();
+    setTimeout(function() { alert("Your browser blocked the automatic tab closure.\nPlease close this tab manually."); }, 100);
+  });
+
+  function addNewShape(factoryFn) {
+    var wrap = document.getElementById("canvasWrap");
+    var centerX = wrap.scrollLeft + (wrap.clientWidth / 2);
+    var centerY = wrap.scrollTop + (wrap.clientHeight / 2);
+    centerX += (Math.random() * 40 - 20); centerY += (Math.random() * 40 - 20);
+    var newShape = factoryFn(centerX, centerY);
+    shapes.push(newShape); selectedId = newShape.id;
+    correctShapeIds.delete(newShape.id); // New shapes are unmarked
+    updateInputState(); draw();
+  }
+
+  document.getElementById("addStartEnd").addEventListener("click", function() { addNewShape(makeStartEnd); });
+  document.getElementById("addProcess").addEventListener("click", function() { addNewShape(makeProcess); });
+  document.getElementById("addPredefined").addEventListener("click", function() { addNewShape(makePredefined); });
+  document.getElementById("addDecision").addEventListener("click", function() { addNewShape(makeDecision); });
+  document.getElementById("addData").addEventListener("click", function() { addNewShape(makeData); });
+  document.getElementById("addConnector").addEventListener("click", function() { addNewShape(makeConnector); });
+  document.getElementById("addArrow").addEventListener("click", function() { addNewShape(makeArrow); });
+  document.getElementById("addYes").addEventListener("click", function() { addNewShape(function(x, y) { return makeTextLabel(x, y, "Yes"); }); });
+  document.getElementById("addNo").addEventListener("click", function() { addNewShape(function(x, y) { return makeTextLabel(x, y, "No"); }); });
+
+  // ---------- Challenge Mode Logic ----------
+  challengeSelect.addEventListener("change", function(e) {
+    currentChallenge = e.target.value;
+    resetScene();
+
+    if (currentChallenge === "none") {
+      questionPanel.style.display = "none";
+      checkBtn.style.display = "none";
+    } else {
+      var q = questionsData[currentChallenge];
+      document.getElementById("qTitle").textContent = q.title;
+      document.getElementById("qDesc").textContent = q.desc;
+      document.getElementById("qRules").innerHTML = q.rules;
+      questionPanel.style.display = "flex";
+      checkBtn.style.display = "inline-flex";
+    }
+  });
+
+  checkBtn.addEventListener("click", function() {
+    if (currentChallenge === "none") return;
+    
+    // Clear previous correct marks
+    correctShapeIds.clear();
+    
+    var q = questionsData[currentChallenge];
+    var results = q.check(shapes);
+
+    var allPassed = true;
+    var failMessages = [];
+
+    results.forEach(function(r) {
+      if (r.pass) {
+        // It passed, the check function already added it to correctShapeIds
+      } else {
+        allPassed = false;
+        failMessages.push("❌ " + r.text);
+      }
+    });
+
+    draw(); // Re-draw to show the green ticks
+
+    if (allPassed) {
+      alert("🎉 Perfect! Your flowchart includes all the correct elements and labels for this question.");
+    } else {
+      var msg = "Almost there! You are missing or have incorrect labels for:\n\n";
+      msg += failMessages.join("\n");
+      msg += "\n\n(Hint: The shapes you got right have a green tick on them!)";
+      alert(msg);
+    }
+  });
+
+  // ---------- Boot ----------
+  resetScene();
+})();
+</script>
+</body>
+</html>
