@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>OS 1 Task 1 - High Accuracy Marker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<style>
+  body { font-family: system-ui, sans-serif; background: #f0f4f8; padding: 20px; color: #1e293b; margin: 0; }
+  .main-container { max-width: 1400px; margin: 0 auto; }
+  
+  /* Main Heading */
+  .main-heading { text-align: center; margin-bottom: 15px; }
+  .main-heading h1 { font-size: 2.5rem; color: #1e3a8a; margin: 0 0 5px 0; letter-spacing: -1px; }
+  .main-heading p { color: #64748b; font-size: 1.1rem; margin: 0; }
+
+  /* Disclaimer Banner - Grey Style */
+  .disclaimer-box {
+    background-color: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-left: 6px solid #475569;
+    color: #334155;
+    padding: 15px 20px;
+    border-radius: 6px;
+    margin-bottom: 25px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .disclaimer-box .icon { font-size: 1.5rem; line-height: 1; }
+
+  /* Top Navigation Tabs */
+  .activity-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #cbd5e1; padding-bottom: 10px; }
+  .activity-tab { 
+    background: white; border: 2px solid #cbd5e1; padding: 10px 20px; font-size: 1.1rem; 
+    font-weight: bold; color: #64748b; cursor: pointer; border-radius: 6px; transition: all 0.2s; 
+  }
+  .activity-tab.active { background: #4f46e5; border-color: #4f46e5; color: white; }
+  .activity-tab:hover:not(.active) { background: #e2e8f0; border-color: #94a3b8; color: #1e293b; }
+
+  /* Main Content Box */
+  .container { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; }
+  .container.active { display: block; }
+
+  /* Mode Toggle (Table vs Upload) */
+  .mode-toggle { display: flex; gap: 10px; margin-bottom: 20px; background: #e2e8f0; padding: 5px; border-radius: 8px; width: fit-content; }
+  .mode-btn { background: transparent; border: none; padding: 8px 16px; font-size: 0.9rem; font-weight: 600; color: #64748b; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+  .mode-btn.active { background: white; color: #4f46e5; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; table-layout: fixed; }
+  th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; vertical-align: top; }
+  th { background: #f8fafc; font-weight: bold; font-size: 0.85rem; }
+  textarea { width: 100%; height: 100px; border: none; resize: vertical; font-family: inherit; outline: none; font-size: 0.85rem; line-height: 1.4; }
+  textarea:focus { background: #f8fafc; }
+  
+  /* Controls & Buttons */
+  .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .btn { border: none; padding: 10px 20px; font-size: 0.95rem; font-weight: bold; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
+  .btn-add { background: #e2e8f0; color: #1e293b; }
+  .btn-add:hover { background: #cbd5e1; }
+  .btn-check { background: #4f46e5; color: white; flex-grow: 1; }
+  .btn-check:hover { background: #4338ca; }
+  .btn-remove { background: #fee2e2; color: #dc2626; padding: 4px 8px; font-size: 0.8rem; border-radius: 4px; margin-top: 5px; cursor: pointer; border: none; width: 100%; }
+  .btn-remove:hover { background: #fca5a5; }
+
+  /* Upload Zone */
+  .upload-zone { border: 3px dashed #cbd5e1; border-radius: 12px; padding: 40px; text-align: center; background: #f8fafc; transition: all 0.2s ease; cursor: pointer; margin-bottom: 20px; display: block; }
+  .upload-zone:hover { background: #eff6ff; border-color: #3b82f6; }
+  .upload-zone input[type="file"] { display: none; }
+  .upload-icon { font-size: 3rem; margin-bottom: 10px; }
+  .upload-text { font-weight: 600; color: #475569; }
+  .upload-sub { font-size: 0.85rem; color: #94a3b8; margin-top: 5px; }
+
+  /* Feedback Styles */
+  .feedback-container { margin-top: 20px; padding: 20px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; display: none; }
+  .band-card { background: white; border: 1px solid #e2e8f0; padding: 15px; border-radius: 6px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .band-card h4 { margin: 0 0 10px 0; color: #1e293b; font-size: 1.05rem; display: flex; justify-content: space-between; align-items: center; }
+  .band-score { background: #4f46e5; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.9rem; }
+  .band-card p { margin: 5px 0; font-size: 0.9rem; color: #475569; }
+  .pass { color: #059669; font-weight: 600; }
+  .fail { color: #dc2626; font-weight: 600; }
+  
+  .total-score-box { text-align: center; padding: 20px; background: #eff6ff; border: 2px dashed #bfdbfe; border-radius: 8px; margin-bottom: 20px; }
+  .total-score-box h2 { margin: 0; font-size: 2.2rem; color: #1e40af; }
+  .total-score-box p { margin: 5px 0 0 0; color: #3b82f6; font-weight: bold; font-size: 1.1rem; }
+
+  .loader { display: none; text-align: center; font-weight: bold; color: #4f46e5; margin: 20px 0; }
+  .preview-box { margin-top: 20px; padding: 15px; background: #f1f5f9; border-radius: 6px; font-size: 0.85rem; max-height: 150px; overflow-y: auto; color: #64748b; border: 1px solid #e2e8f0; display: none; }
+</style>
+</head>
+<body>
+
+<div class="main-container">
+  
+  <div class="main-heading">
+    <h1>OS 1 Task 1</h1>
+    <p>Digital Support and Security: Infrastructure Assessment</p>
+  </div>
+
+  <!-- DISCLAIMER BANNER -->
+  <div class="disclaimer-box">
+    <div class="icon">⚠️</div>
+    <div>
+      <strong>Automated Feedback Disclaimer:</strong> This tool is designed to provide quick, automated feedback on your work. While it uses specific phrases and word counts from the mark scheme, <strong>accuracy is not 100% guaranteed</strong>. It cannot replace a human examiner. <strong>A tutor will review your submission and provide the final, official grade.</strong>
+    </div>
+  </div>
+
+  <!-- ACTIVITY TABS WITH BORDER -->
+  <div class="activity-tabs">
+    <button class="activity-tab active" id="nav-activityA" onclick="switchActivity('A')">Activity A: Risk Assessment</button>
+    <button class="activity-tab" id="nav-activityB" onclick="switchActivity('B')">Activity B: Infrastructure Requirements</button>
+  </div>
+
+  <!-- ACTIVITY A -->
+  <div class="container active" id="activityA-container">
+    <h2>Activity A: Risk Assessment Table</h2>
+    
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="tab-table-A" onclick="switchModeA('table')">📝 Complete Table</button>
+      <button class="mode-btn" id="tab-upload-A" onclick="switchModeA('upload')">📄 Upload Document</button>
+    </div>
+
+    <div id="table-mode-A">
+      <p><strong>Instructions:</strong> Fill in the table based on the WDPF scenario. To achieve Band 2 or Band 3, you must add more rows and provide detailed explanations.</p>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 18%;">Threat</th>
+            <th style="width: 15%;">Likelihood (High/Med/Low)</th>
+            <th style="width: 22%;">Vulnerability / Weakness</th>
+            <th style="width: 15%;">Asset to protect</th>
+            <th style="width: 25%;">Impact / Damage</th>
+            <th style="width: 5%;"></th>
+          </tr>
+        </thead>
+        <tbody id="tableBodyA"></tbody>
+      </table>
+      <div class="controls">
+        <button class="btn btn-add" onclick="addRowA()">+ Add Row</button>
+        <button class="btn btn-check" onclick="checkAnswersA()">Calculate Overall Band</button>
+      </div>
+    </div>
+
+    <div id="upload-mode-A" style="display: none;">
+      <p><strong>Instructions:</strong> Upload your completed Risk Assessment table (Word or Text file).</p>
+      <label class="upload-zone" id="dropZoneA" for="fileInputA">
+        <input type="file" id="fileInputA" accept=".docx, .txt" onclick="this.value = null;">
+        <div class="upload-icon">📄</div>
+        <div class="upload-text">Click to browse or drag and drop</div>
+      </label>
+      <div class="loader" id="loaderA">🤖 Extracting text and calculating marks...</div>
+      <div class="preview-box" id="previewBoxA"></div>
+    </div>
+
+    <div class="feedback-container" id="feedbackBoxA"></div>
+  </div>
+
+  <!-- ACTIVITY B -->
+  <div class="container" id="activityB-container">
+    <h2>Activity B: Infrastructure Requirements</h2>
+    
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="tab-table-B" onclick="switchModeB('table')">📝 Complete Table</button>
+      <button class="mode-btn" id="tab-upload-B" onclick="switchModeB('upload')">📄 Upload Document</button>
+    </div>
+
+    <div id="table-mode-B">
+      <p><strong>Instructions:</strong> Fill in the table based on the WDPF scenario. You must cover Hardware, Software, Server Configurations, and IPv4 addressing.</p>
+      <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+        <button class="btn btn-add" onclick="addRowB('hardware')">+ Add Hardware</button>
+        <button class="btn btn-add" onclick="addRowB('software')">+ Add Software</button>
+        <button class="btn btn-add" onclick="addRowB('server')">+ Add Server Config</button>
+        <button class="btn btn-add" onclick="addRowB('ip')">+ Add IPv4 Address</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 20%;">Category</th>
+            <th style="width: 20%;">Item / Device / Address</th>
+            <th style="width: 45%;">Description / Purpose / Configuration</th>
+            <th style="width: 15%;">Connection / Type</th>
+            <th style="width: 5%;"></th>
+          </tr>
+        </thead>
+        <tbody id="tableBodyB"></tbody>
+      </table>
+      <div class="controls">
+        <button class="btn btn-check" onclick="checkAnswersB()" style="width: 100%;">Calculate Overall Band</button>
+      </div>
+    </div>
+
+    <div id="upload-mode-B" style="display: none;">
+      <p><strong>Instructions:</strong> Upload your completed Infrastructure Requirements document (Word or Text file).</p>
+      <label class="upload-zone" id="dropZoneB" for="fileInputB">
+        <input type="file" id="fileInputB" accept=".docx, .txt" onclick="this.value = null;">
+        <div class="upload-icon">📄</div>
+        <div class="upload-text">Click to browse or drag and drop</div>
+      </label>
+      <div class="loader" id="loaderB">🤖 Extracting text and calculating marks...</div>
+      <div class="preview-box" id="previewBoxB"></div>
+    </div>
+
+    <div class="feedback-container" id="feedbackBoxB"></div>
+  </div>
+</div>
+
+<script>
+  // ==========================================
+  // NAVIGATION
+  // ==========================================
+  function switchActivity(activity) {
+    document.getElementById('activityA-container').classList.remove('active');
+    document.getElementById('activityB-container').classList.remove('active');
+    document.getElementById('nav-activityA').classList.remove('active');
+    document.getElementById('nav-activityB').classList.remove('active');
+    if (activity === 'A') {
+      document.getElementById('activityA-container').classList.add('active');
+      document.getElementById('nav-activityA').classList.add('active');
+    } else {
+      document.getElementById('activityB-container').classList.add('active');
+      document.getElementById('nav-activityB').classList.add('active');
+    }
+  }
+
+  // ==========================================
+  // ACTIVITY A LOGIC
+  // ==========================================
+  var rowCountA = 0;
+  function switchModeA(mode) {
+    var tableUI = document.getElementById("table-mode-A"), uploadUI = document.getElementById("upload-mode-A");
+    var tabTable = document.getElementById("tab-table-A"), tabUpload = document.getElementById("tab-upload-A");
+    document.getElementById("feedbackBoxA").style.display = "none";
+    if (mode === "table") { tableUI.style.display = "block"; uploadUI.style.display = "none"; tabTable.classList.add("active"); tabUpload.classList.remove("active"); }
+    else { tableUI.style.display = "none"; uploadUI.style.display = "block"; tabUpload.classList.add("active"); tabTable.classList.remove("active"); }
+  }
+
+  function addRowA() {
+    rowCountA++;
+    var tbody = document.getElementById("tableBodyA");
+    var tr = document.createElement("tr");
+    tr.id = "rowA-" + rowCountA;
+    tr.innerHTML = `
+      <td><textarea class="a-t" placeholder="Enter threat..."></textarea></td>
+      <td><textarea class="a-l" placeholder="Likelihood & reason..."></textarea></td>
+      <td><textarea class="a-v" placeholder="Vulnerability..."></textarea></td>
+      <td><textarea class="a-a" placeholder="Asset..."></textarea></td>
+      <td><textarea class="a-i" placeholder="Impact..."></textarea></td>
+      <td><button class="btn-remove" onclick="document.getElementById('rowA-${rowCountA}').remove()">Remove</button></td>
+    `;
+    tbody.appendChild(tr);
+  }
+  addRowA(); addRowA(); addRowA();
+
+  function checkAnswersA() {
+    var rows = document.querySelectorAll("#tableBodyA tr");
+    var fullText = ""; var completedRows = 0;
+    rows.forEach(function(row) {
+      var t = row.querySelector(".a-t").value.trim(); var l = row.querySelector(".a-l").value.trim();
+      var v = row.querySelector(".a-v").value.trim(); var a = row.querySelector(".a-a").value.trim();
+      var i = row.querySelector(".a-i").value.trim();
+      if (t.length > 3 && i.length > 3) { completedRows++; fullText += t + " " + l + " " + v + " " + a + " " + i + " "; }
+    });
+    if (fullText.trim() === "") { alert("Please fill in at least one complete row."); return; }
+    markSubmissionA(fullText, completedRows);
+  }
+
+  var fileInputA = document.getElementById("fileInputA"), dropZoneA = document.getElementById("dropZoneA");
+  var loaderA = document.getElementById("loaderA"), previewBoxA = document.getElementById("previewBoxA");
+
+  dropZoneA.addEventListener("click", function(e) { if (e.target.tagName !== 'INPUT') { fileInputA.value = null; fileInputA.click(); } });
+  fileInputA.addEventListener("change", function(e) { if (e.target.files.length > 0) processFileA(e.target.files[0]); });
+  dropZoneA.addEventListener("dragover", (e) => { e.preventDefault(); dropZoneA.style.borderColor = "#3b82f6"; });
+  dropZoneA.addEventListener("dragleave", (e) => { e.preventDefault(); dropZoneA.style.borderColor = "#cbd5e1"; });
+  dropZoneA.addEventListener("drop", (e) => { e.preventDefault(); dropZoneA.style.borderColor = "#cbd5e1"; if (e.dataTransfer.files.length > 0) { fileInputA.files = e.dataTransfer.files; processFileA(e.dataTransfer.files[0]); } });
+
+  function processFileA(file) {
+    loaderA.style.display = "block"; document.getElementById("feedbackBoxA").style.display = "none";
+    previewBoxA.style.display = "none"; previewBoxA.innerHTML = "";
+    if (file.name.endsWith(".txt")) {
+      const reader = new FileReader();
+      reader.onload = function(e) { processTextA(e.target.result); };
+      reader.readAsText(file);
+    } else if (file.name.endsWith(".docx")) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        mammoth.extractRawText({ arrayBuffer: e.target.result }).then(function(result) { processTextA(result.value); }).catch(function(err) { loaderA.style.display = "none"; alert("Error reading Word document."); });
+      };
+      reader.readAsArrayBuffer(file);
+    } else { loaderA.style.display = "none"; alert("Please upload a .docx or .txt file."); }
+  }
+
+  function processTextA(text) {
+    loaderA.style.display = "none"; previewBoxA.style.display = "block";
+    previewBoxA.innerHTML = "<strong>Text extracted:</strong><br><br>" + text.substring(0, 300) + "...";
+    if (text.trim().length < 50) { alert("Document too short."); return; }
+    var lines = text.split(/\n/).filter(line => line.trim().length > 20);
+    var completedRows = lines.length > 3 ? lines.length : Math.floor(text.split(/\s+/).length / 30); 
+    markSubmissionA(text, completedRows);
+  }
+
+  function markSubmissionA(rawText, completedRows) {
+    var fullText = rawText.toLowerCase().trim();
+    var wordCount = fullText.split(/\s+/).length;
+
+    var riskPhrases = ["remote access", "byod", "bring your own device", "public wi-fi", "temporary staff", "single point of failure", "central file server", "backup server", "cat5", "hotspot"];
+    var risksFound = riskPhrases.filter(p => fullText.includes(p)).length;
+    var hasLikelihood = fullText.includes("high") || fullText.includes("medium") || fullText.includes("low");
+    var hasReason = fullText.includes("because") || fullText.includes("due to") || fullText.includes("since");
+    
+    var trait1Band = 0;
+    if (completedRows >= 1 && risksFound >= 1 && hasLikelihood) trait1Band = 1;
+    if (completedRows >= 3 && risksFound >= 3 && hasLikelihood && hasReason) trait1Band = 2;
+    if (completedRows >= 5 && risksFound >= 5 && hasLikelihood && hasReason) trait1Band = 3;
+
+    var vulnPhrases = ["lack of physical security", "unsecured public networks", "lack of vpn", "unencrypted data", "single shared password", "no port security", "missing security patches", "poor network documentation"];
+    var assetPhrases = ["customer databases", "financial records", "payroll data", "internal systems", "staff devices", "strategic data"];
+    var vulnsFound = vulnPhrases.filter(p => fullText.includes(p)).length;
+    var assetsFound = assetPhrases.filter(p => fullText.includes(p)).length;
+
+    var trait2Band = 0;
+    if (completedRows >= 1 && vulnsFound >= 1 && assetsFound >= 1) trait2Band = 1;
+    if (completedRows >= 3 && vulnsFound >= 2 && assetsFound >= 2) trait2Band = 2;
+    if (completedRows >= 5 && vulnsFound >= 3 && assetsFound >= 3) trait2Band = 3;
+
+    var impactPhrases = ["financial loss", "reputational damage", "regulatory fines", "gdpr", "data protection laws", "operational disruption", "identity theft", "ransomware", "legal action", "loss of trust"];
+    var impactsFound = impactPhrases.filter(p => fullText.includes(p)).length;
+
+    var trait3Band = 0;
+    if (completedRows >= 1 && impactsFound >= 1) trait3Band = 1;
+    if (completedRows >= 3 && impactsFound >= 2) trait3Band = 2;
+    if (completedRows >= 5 && impactsFound >= 4 && wordCount > 200) trait3Band = 3;
+
+    generateFeedbackA(trait1Band, trait2Band, trait3Band, completedRows, risksFound, hasLikelihood, hasReason, vulnsFound, assetsFound, impactsFound, wordCount);
+  }
+
+  function generateFeedbackA(t1, t2, t3, rows, risks, hasL, hasR, vul, ast, imp, words) {
+    var t1S = t1 === 0 ? 0 : (t1 === 1 ? 2 : (t1 === 2 ? 4 : 6));
+    var t2S = t2 === 0 ? 0 : (t2 === 1 ? 2 : (t2 === 2 ? 4 : 6));
+    var t3S = t3 === 0 ? 0 : (t3 === 1 ? 2 : (t3 === 2 ? 4 : 6));
+    var total = t1S + t2S + t3S;
+    var band = total <= 0 ? "0" : (total <= 6 ? "1" : (total <= 12 ? "2" : "3"));
+
+    var html = `<div class="total-score-box"><h2>${total} / 18</h2><p>Overall Band: ${band}</p></div>`;
+    html += `<div class="band-card"><h4>Risk Identification & Likelihood <span class="band-score">Band ${t1}</span></h4>
+      <p>${rows >= 5 ? '<span class="pass">✔</span>' : '<span class="fail">❌</span>'} <strong>Breadth:</strong> Detected ${rows} entries (Need 5+).</p>
+      <p>${hasL ? '<span class="pass">✔</span>' : '<span class="fail">❌</span>'} <strong>Likelihood:</strong> High/Medium/Low provided.</p>
+      <p>${hasR ? '<span class="pass">✔</span>' : '<span class="fail">❌</span>'} <strong>Justification:</strong> Used 'because' or 'due to'.</p></div>`;
+
+    html += `<div class="band-card"><h4>Vulnerability & Assets <span class="band-score">Band ${t2}</span></h4>
+      <p>${vul >= 3 ? '<span class="pass">✔</span>' : '<span class="fail">❌</span>'} <strong>Vulnerabilities:</strong> Found ${vul} advanced weaknesses.</p>
+      <p>${ast >= 3 ? '<span class="pass">✔</span>' : '<span class="fail">❌</span>'} <strong>Assets:</strong> Found ${ast} protected assets.</p></div>`;
+
+    html += `<div class="band-card"><h4>Impacts & Harm <span class="band-score">Band ${t3}</span></h4>
+      <p>${imp >= 4 ? '<span class="pass">✔</span>' : '<span class="fail">❌</span>'} <strong>Impact Concepts:</strong> Found ${imp} distinct analytical impacts.</p>
+      <p>${words > 200 ? '<span class="pass">✔</span>' : '<span class="fail">❌</span>'} <strong>Depth:</strong> Word count is ${words} (Need 200+).</p></div>`;
+
+    if (band === "1") html += `<div style="background: #fee2e2; color: #991b1b; padding: 15px; border-radius: 6px; font-size: 0.9rem;"><strong>Examiner Tip:</strong> Add more rows (aim for 5+). You must use specific terminology like "financial loss" or "GDPR fines".</div>`;
+    else if (band === "2") html += `<div style="background: #fef3c7; color: #92400e; padding: 15px; border-radius: 6px; font-size: 0.9rem;"><strong>Examiner Tip:</strong> Good work! To reach Distinction, ensure you explicitly mention "regulatory fines", "reputational damage", and link them to the specific threats.</div>`;
+    else if (band === "3") html += `<div style="background: #d1fae5; color: #065f46; padding: 15px; border-radius: 6px; font-size: 0.9rem;"><strong>Examiner Tip:</strong> Outstanding work! Comprehensive coverage with highly detailed analytical impacts.</div>`;
+
+    document.getElementById("feedbackBoxA").innerHTML = html;
+    document.getElementById("feedbackBoxA").style.display = "block";
+    document.getElementById("feedbackBoxA").scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // ==========================================
+  // ACTIVITY B LOGIC
+  // ==========================================
+  var rowCountB = 0;
+  function switchModeB(mode) {
+    var tableUI = document.getElementById("table-mode-B"), uploadUI = document.getElementById("upload-mode-B");
+    var tabTable = document.getElementById("tab-table-B"), tabUpload = document.getElementById("tab-upload-B");
+    document.getElementById("feedbackBoxB").style.display = "none";
+    if (mode === "table") { tableUI.style.display = "block"; uploadUI.style.display = "none"; tabTable.classList.add("active"); tabUpload.classList.remove("active"); }
+    else { tableUI.style.display = "none"; uploadUI.style.display = "block"; tabUpload.classList.add("active"); tabTable.classList.remove("active"); }
+  }
+
+  // UPDATED: Insert row logic to keep categories together
+  function addRowB(type) {
+    rowCountB++;
+    var tbody = document.getElementById("tableBodyB");
+    var tr = document.createElement("tr");
+    tr.id = "rowB-" + rowCountB;
+    
+    var cat = "", p1 = "", p2 = "", p3 = "";
+    if (type === 'hardware') { cat = "Hardware"; p1 = "e.g., Server, Switch"; p2 = "Purpose..."; p3 = "e.g., Cat6a"; }
+    else if (type === 'software') { cat = "Software"; p1 = "e.g., Windows Server"; p2 = "Purpose..."; p3 = "N/A"; }
+    else if (type === 'server') { cat = "Server Config"; p1 = "e.g., DHCP, DNS"; p2 = "Config settings..."; p3 = "N/A"; }
+    else if (type === 'ip') { cat = "IPv4 Scheme"; p1 = "e.g., 192.168.1.1"; p2 = "What it's used for..."; p3 = "Static / Dynamic"; }
+
+    tr.innerHTML = `<td><strong>${cat}</strong></td><td><textarea class="b-item" placeholder="${p1}"></textarea></td><td><textarea class="b-desc" placeholder="${p2}"></textarea></td><td><textarea class="b-conn" placeholder="${p3}"></textarea></td><td><button class="btn-remove" onclick="document.getElementById('rowB-${rowCountB}').remove()">Remove</button></td>`;
+    
+    // Find the last row of the same category
+    var rows = tbody.querySelectorAll("tr");
+    var lastMatchingRow = null;
+    for (var i = 0; i < rows.length; i++) {
+      var rowCat = rows[i].querySelector("td strong").innerText;
+      if (rowCat === cat) {
+        lastMatchingRow = rows[i];
+      }
+    }
+
+    if (lastMatchingRow) {
+      // Insert after the last matching row
+      lastMatchingRow.parentNode.insertBefore(tr, lastMatchingRow.nextSibling);
+    } else {
+      // If no matching row exists, append to the end
+      tbody.appendChild(tr);
+    }
+  }
+  
+  addRowB('hardware'); addRowB('software'); addRowB('server'); addRowB('ip');
+
+  function checkAnswersB() {
+    var rows = document.querySelectorAll("#tableBodyB tr"); var fullText = ""; var completedRows = 0;
+    rows.forEach(function(row) {
+      var item = row.querySelector(".b-item").value.trim(); var desc = row.querySelector(".b-desc").value.trim(); var conn = row.querySelector(".b-conn").value.trim();
+      if (item.length > 1 && desc.length > 5) { completedRows++; fullText += item + " " + desc + " " + conn + " "; }
+    });
+    if (fullText.trim() === "") { alert("Please fill in at least one complete row."); return; }
+    markSubmissionB(fullText, completedRows);
+  }
+
+  var fileInputB = document.getElementById("fileInputB"), dropZoneB = document.getElementById("dropZoneB");
+  var loaderB = document.getElementById("loaderB"), previewBoxB = document.getElementById("previewBoxB");
+
+  dropZoneB.addEventListener("click", function(e) { if (e.target.tagName !== 'INPUT') { fileInputB.value = null; fileInputB.click(); } });
+  fileInputB.addEventListener("change", function(e) { if (e.target.files.length > 0) processFileB(e.target.files[0]); });
+  dropZoneB.addEventListener("dragover", (e) => { e.preventDefault(); dropZoneB.style.borderColor = "#3b82f6"; });
+  dropZoneB.addEventListener("dragleave", (e) => { e.preventDefault(); dropZoneB.style.borderColor = "#cbd5e1"; });
+  dropZoneB.addEventListener("drop", (e) => { e.preventDefault(); dropZoneB.style.borderColor = "#cbd5e1"; if (e.dataTransfer.files.length > 0) { fileInputB.files = e.dataTransfer.files; processFileB(e.dataTransfer.files[0]); } });
+
+  function processFileB(file) {
+    loaderB.style.display = "block"; document.getElementById("feedbackBoxB").style.display = "none";
+    previewBoxB.style.display = "none"; previewBoxB.innerHTML = "";
+    if (file.name.endsWith(".txt")) {
+      const reader = new FileReader();
+      reader.onload = function(e) { processTextB(e.target.result); };
+      reader.readAsText(file);
+    } else if (file.name.endsWith(".docx")) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        mammoth.extractRawText({ arrayBuffer: e.target.result }).then(function(result) { processTextB(result.value); }).catch(function(err) { loaderB.style.display = "none"; alert("Error reading Word document."); });
+      };
+      reader.readAsArrayBuffer(file);
+    } else { loaderB.style.display = "none"; alert("Please upload a .docx or .txt file."); }
+  }
+
+  function processTextB(text) {
+    loaderB.style.display = "none"; previewBoxB.style.display = "block";
+    previewBoxB.innerHTML = "<strong>Text extracted:</strong><br><br>" + text.substring(0, 300) + "...";
+    if (text.trim().length < 50) { alert("Document too short."); return; }
+    var lines = text.split(/\n/).filter(line => line.trim().length > 15);
+    var completedRows = lines.length > 3 ? lines.length : Math.floor(text.split(/\s+/).length / 25); 
+    markSubmissionB(text, completedRows);
+  }
+
+  function markSubmissionB(rawText, completedRows) {
+    var fullText = rawText.toLowerCase().trim();
+    var wordCount = fullText.split(/\s+/).length;
+
+    var hwKeywords = ["ups", "switch", "router", "desktop", "laptop", "server", "nas", "printer", "cabinet", "cat6", "wired", "wireless"];
+    var swKeywords = ["windows", "server os", "database", "backup software", "antivirus", "firewall software", "vpn", "productivity"];
+    var hwFound = hwKeywords.filter(k => fullText.includes(k)).length;
+    var swFound = swKeywords.filter(k => fullText.includes(k)).length;
+    var hasConnDetails = fullText.includes("cat6a") || fullText.includes("utp") || fullText.includes("vpn access") || fullText.includes("redundant power");
+
+    var trait1Band = 0;
+    if (completedRows >= 2 && hwFound >= 2) trait1Band = 1; 
+    if (completedRows >= 5 && hwFound >= 4 && swFound >= 2) trait1Band = 2; 
+    if (completedRows >= 8 && hwFound >= 6 && swFound >= 4 && hasConnDetails) trait1Band = 3; 
+
+    var serverKeywords = ["ad-ds", "active directory", "dns", "dhcp", "user group", "shared folder", "permissions", "group policy", "password policy", "firewall", "update", "backup schedule"];
+    var serverFound = serverKeywords.filter(k => fullText.includes(k)).length;
+    var hasSecurityLink = fullText.includes("prevent unauthorised access") || fullText.includes("protect sensitive") || fullText.includes("mitigate risk") || fullText.includes("reduce the risk");
+
+    var trait2Band = 0;
+    if (serverFound >= 1) trait2Band = 1;
+    if (serverFound >= 3 && hasSecurityLink) trait2Band = 2;
+    if (serverFound >= 5 && hasSecurityLink && wordCount > 100) trait2Band = 3;
+
+    var hasIp = fullText.includes("192.168") || fullText.includes("ip address") || fullText.includes("ipv4");
+    var hasStatic = fullText.includes("static");
+    var hasDynamic = fullText.includes("dynamic") || fullText.includes("dhcp");
+    var hasLogicalStructure = fullText.includes("vlan") || fullText.includes("subnet") || fullText.includes("gateway");
+
+    var trait3Band = 0;
+    if (hasIp && (hasStatic || hasDynamic)) trait3Band = 1;
+    if (hasIp && hasStatic && hasDynamic) trait3Band = 2;
+    if (hasIp && hasStatic && hasDynamic && hasLogicalStructure) trait3Band = 3;
+
+    generateFeedbackB(trait1Band, trait2Band, trait3Band, hwFound, swFound, serverFound, hasSecurityLink, hasIp, hasStatic, hasDynamic, hasLogicalStructure, hasConnDetails);
+  }
+
+  function generateFeedbackB(t1, t2, t3, hw, sw, srv, secLink, hasIp, hasStat, hasDyn, hasStruct, connDets) {
+    var t1S = t1 === 0 ? 0 : (t1 === 1 ? 2 : (t1 === 2 ? 4 : 6));
+    var t2S = t2 === 0 ? 0 : (t2 === 1 ? 2 : (t2 === 2 ? 4 : 6));
+    var t3S = t3 === 0 ? 0 : (t3 === 1 ? 2 : (t3 === 2 ? 4 : 6));
+    var total = t1S + t2S + t3S;
+    var band = total <= 0 ? "0" : (total <= 6 ? "1" : (total <= 12 ? "2" : "3"));
+
+    var html = `<div class="total-score-box"><h2>${total} / 18</h2><p>Overall Band: ${band}</p></div>`;
+    
+    html += `<div class="band-card"><h4>Hardware, Software & Connections <span class="band-score">Band ${t1}</span></h4>
+      <p>${hw >= 6 ? '<span class="pass">✔</span>' : '<span class="fail">❌</span>'} <strong>Hardware:</strong> Detected ${hw} items (Need 6+).</p>
+      <p>${sw >= 4 ? '<span class="pass">✔</span>' : '<span class="fail">❌</span>'} <strong>Software:</strong> Detected ${sw} types (Need 4+).</p>
+      <p>${connDets ? '<span class="pass">✔</span>' : '<span class="fail">❌</span>'} <strong>Connections:</strong> Mentioned specific details (e.g., Cat6a, VPN).</p></div>`;
+
+    html += `<div class="band-card"><h4>Server Configuration <span class="band-score">Band ${t2}</span></h4>
+      <p>${srv >= 5 ? '<span class="pass">✔</span>' : '<span class="fail">❌</span>'} <strong>Configs:</strong> Detected ${srv} settings (Need 5+).</p>
+      <p>${secLink ? '<span class="pass">✔</span>' : '<span class="fail">❌</span>'} <strong>Security Link:</strong> Explicitly linked settings to preventing risks.</p></div>`;
+
+    html += `<div class="band-card"><h4>IPv4 Addressing Scheme <span class="band-score">Band ${t3}</span></h4>
+      <p>${hasIp ? '<span class="pass">✔</span>' : '<span class="fail">❌</span>'} <strong>IP Addresses:</strong> Provided a scheme.</p>
+      <p>${hasStat && hasDyn ? '<span class="pass">✔</span>' : '<span class="fail">❌</span>'} <strong>Static & Dynamic:</strong> Used both.</p>
+      <p>${hasStruct ? '<span class="pass">✔</span>' : '<span class="fail">❌</span>'} <strong>Logical Structure:</strong> Organised using VLANs, Subnets, or Gateways.</p></div>`;
+
+    if (band === "1") html += `<div style="background: #fee2e2; color: #991b1b; padding: 15px; border-radius: 6px; font-size: 0.9rem;"><strong>Examiner Tip:</strong> Add more items. Ensure you have Server, Switch, Router, UPS, and at least 4 software types. Detail your IP scheme!</div>`;
+    else if (band === "2") html += `<div style="background: #fef3c7; color: #92400e; padding: 15px; border-radius: 6px; font-size: 0.9rem;"><strong>Examiner Tip:</strong> Expand server configurations (AD-DS, DNS, DHCP, Group Policy) and explicitly state how they protect against specific risks.</div>`;
+    else if (band === "3") html += `<div style="background: #d1fae5; color: #065f46; padding: 15px; border-radius: 6px; font-size: 0.9rem;"><strong>Examiner Tip:</strong> Outstanding work! Comprehensive list with logical IP scheme and security justifications.</div>`;
+
+    document.getElementById("feedbackBoxB").innerHTML = html;
+    document.getElementById("feedbackBoxB").style.display = "block";
+    document.getElementById("feedbackBoxB").scrollIntoView({ behavior: 'smooth' });
+  }
+</script>
+
+</body>
+</html>
