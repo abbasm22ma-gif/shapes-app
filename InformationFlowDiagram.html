@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Information Flow Diagrams</title>
+<style>
+  * { box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #f0f4f8;
+    font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+    display: flex; justify-content: center; align-items: flex-start;
+  }
+  .app {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #d1d5db;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 1400px;
+    margin: 20px auto;
+    transition: background 0.3s, border-color 0.3s;
+  }
+  .app.dark-mode { background: #1e293b; border-color: #334155; }
+  .app.dark-mode .page-title { color: #38bdf8; border-bottom-color: #334155; }
+  .app.dark-mode .label-editor, .app.dark-mode .slider-control { background: #0f172a; border-color: #334155; color: #cbd5e1; }
+  .app.dark-mode .label-editor input { color: #f8fafc; }
+  .app.dark-mode .guide-section { background: #0f172a; border-color: #334155; }
+  .app.dark-mode .guide-section h3 { color: #38bdf8; border-bottom-color: #334155; }
+  .app.dark-mode .guide-section li { color: #cbd5e1; }
+  .app.dark-mode .guide-section strong { color: #f8fafc; }
+
+  .page-title {
+    font-size: 2rem; font-weight: 700; color: #1e3a8a; text-align: center; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 3px solid #e2e8f0;
+  }
+
+  .toolbar {
+    display: flex; gap: 10px; align-items: center; padding: 0 0 16px 0; flex-wrap: wrap;
+  }
+  .toolbar button, .toolbar select {
+    background: #4f46e5; border: none; color: #ffffff; font-weight: 600; font-size: 0.9rem; padding: 10px 20px; border-radius: 6px; cursor: pointer; transition: background 0.2s; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .toolbar button:hover { background: #4338ca; }
+  .toolbar button.reset-btn { background: #ef4444; }
+  .toolbar button.reset-btn:hover { background: #dc2626; }
+  .toolbar button.save-img-btn { background: #0ea5e9; }
+  .toolbar button.save-img-btn:hover { background: #0284c7; }
+  .toolbar button.undo-btn { background: #64748b; padding: 10px 14px; }
+  .toolbar button.undo-btn:hover { background: #475569; }
+  
+  .toolbar button.delete-btn { background: #dc2626; }
+  .toolbar button.delete-btn:hover:not(:disabled) { background: #b91c1c; }
+  .toolbar button.delete-btn:disabled { background: #cbd5e1; cursor: not-allowed; opacity: 0.7; }
+  
+  .toolbar button.close-btn {
+    background: #64748b; margin-left: auto; align-self: center; border-left: 2px solid #cbd5e1; padding-left: 20px; border-top-left-radius: 0; border-bottom-left-radius: 0; border-top-right-radius: 6px; border-bottom-right-radius: 6px;
+  }
+  .toolbar button.close-btn:hover { background: #475569; }
+  
+  .add-tools {
+    display: flex; gap: 8px; margin-left: 10px; padding-left: 10px; border-left: 2px solid #cbd5e1; flex-wrap: wrap; align-items: center;
+  }
+  .add-tools button {
+    background: #f8fafc; color: #1e293b; border: 1px solid #cbd5e1; padding: 8px 12px; font-size: 0.85rem; box-shadow: none;
+  }
+  .add-tools button:hover { background: #e2e8f0; }
+  .add-tools button.connect-btn { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+  .add-tools button.connect-btn.active { background: #f59e0b; color: white; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3); }
+
+  .label-editor {
+    display: flex; align-items: center; gap: 8px; background: #f8fafc; padding: 4px 12px; border-radius: 6px; border: 1px solid #cbd5e1;
+  }
+  .label-editor span { font-size: 0.85rem; font-weight: 600; color: #64748b; }
+  .label-editor input {
+    border: none; background: transparent; padding: 6px; font-size: 0.95rem; outline: none; width: 140px; color: #1e293b;
+  }
+  .label-editor input:disabled { color: #94a3b8; cursor: not-allowed; }
+
+  .slider-control {
+    display: none; align-items: center; gap: 8px; background: #eff6ff; padding: 4px 12px; border-radius: 6px; border: 1px solid #bfdbfe;
+  }
+  .slider-control span { font-size: 0.85rem; font-weight: 600; color: #1e40af; }
+  .slider-control input[type="range"] { width: 80px; cursor: pointer; }
+  .zoom-value { font-size: 0.8rem; font-weight: bold; color: #1e40af; min-width: 35px; text-align: right; }
+
+  .canvas-wrap {
+    position: relative; width: 100%; height: 70vh; background: #ffffff; border: 2px solid #cbd5e1; border-radius: 8px; overflow: auto;
+    transition: background 0.3s, border-color 0.3s;
+  }
+  .canvas-wrap.dark-mode { background: #0f172a; border-color: #334155; }
+  
+  canvas {
+    display: block; cursor: grab; touch-action: none;
+  }
+  canvas:active { cursor: grabbing; }
+
+  .guide-section {
+    background: #f8fafc; border: 2px solid #cbd5e1; border-radius: 8px; padding: 15px 20px; margin-top: 20px; transition: background 0.3s, border-color 0.3s;
+  }
+  .guide-section h3 {
+    margin: 0 0 10px 0; font-size: 1rem; color: #1e3a8a; border-bottom: 2px solid #cbd5e1; padding-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .guide-section ul {
+    list-style-type: disc; padding-left: 20px; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px 20px;
+  }
+  .guide-section li { font-size: 0.85rem; color: #475569; line-height: 1.4; }
+  .guide-section strong { color: #1e293b; }
+</style>
+</head>
+<body>
+
+<div class="app" id="appContainer">
+  
+  <h1 class="page-title">Information Flow Diagrams</h1>
+
+  <div class="toolbar">
+    <button class="undo-btn" id="undoBtn" title="Undo (Ctrl+Z)">↶ Undo</button>
+    <button class="undo-btn" id="redoBtn" title="Redo (Ctrl+Y)">↷ Redo</button>
+    <button class="save-img-btn" id="saveImgBtn" title="Download as PNG">📷 Save PNG</button>
+    <button class="reset-btn" id="themeToggle" style="background:#6366f1;" title="Toggle Dark Mode">🌙 Dark Mode</button>
+    <button class="delete-btn" id="deleteBtn" disabled title="Delete Selected Shape">🗑️ Delete</button>
+    
+    <div class="slider-control" id="zoomControl" style="display:flex;">
+      <span>Zoom:</span>
+      <input type="range" id="zoomSlider" min="0.5" max="2.0" step="0.1" value="1.0">
+      <span class="zoom-value" id="zoomValue">100%</span>
+    </div>
+
+    <button class="reset-btn" id="resetBtn" type="button">⟲ Clear All</button>
+    
+    <button class="close-btn" id="closeBtn" type="button">✕ Close Tab</button>
+  </div>
+
+  <div class="toolbar">
+    <div class="add-tools" style="border-left: none; padding-left: 0; margin-left: 0;">
+      <button id="addBox">+ Rectangle (Box)</button>
+      <button id="addArrow">+ Arrow</button>
+      <button id="connectToolBtn" class="connect-btn">🔗 Connect</button>
+    </div>
+
+    <div class="label-editor" style="margin-left: auto;">
+      <span>Label:</span>
+      <input type="text" id="textInput" placeholder="Select a shape..." disabled>
+    </div>
+    
+    <div class="slider-control" id="rotateControl">
+      <span>Rotate:</span>
+      <input type="range" id="rotateSlider" min="0" max="360" value="0">
+    </div>
+
+    <div class="slider-control" id="scaleControl">
+      <span>Scale:</span>
+      <input type="range" id="scaleSlider" min="0.5" max="2.0" step="0.1" value="1.0">
+    </div>
+  </div>
+  
+  <div class="canvas-wrap" id="canvasWrap">
+    <canvas id="shapeCanvas" width="1600" height="1000"></canvas>
+  </div>
+
+  <div class="guide-section">
+    <h3>Toolbar Guide</h3>
+    <ul>
+      <li><strong>Undo / Redo (Ctrl+Z/Y):</strong> Reverts or reapplies your last action.</li>
+      <li><strong>Save PNG:</strong> Downloads your diagram as an image file.</li>
+      <li><strong>Dark Mode:</strong> Toggles the canvas background between light and dark.</li>
+      <li><strong>Delete:</strong> Removes the currently selected shape (also Backspace/Delete).</li>
+      <li><strong>Zoom Slider:</strong> Scales the canvas view in or out.</li>
+      <li><strong>Clear All:</strong> Wipes the canvas completely to start fresh.</li>
+      <li><strong>Add Shapes (+):</strong> Click to add a new box or arrow to the centre.</li>
+      <li><strong>Connect (🔗):</strong> Click the button, then click Box A, then Box B to draw an auto-attached arrow.</li>
+      <li><strong>Label Box:</strong> Select a shape (especially arrows) and type here to add the information flow text.</li>
+      <li><strong>Rotate Slider:</strong> Spins the selected arrow around its centre.</li>
+      <li><strong>Scale Slider:</strong> Makes the selected shape bigger or smaller.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var canvas = document.getElementById("shapeCanvas");
+  var ctx = canvas.getContext("2d");
+  var textInput = document.getElementById("textInput");
+  var rotateControl = document.getElementById("rotateControl");
+  var rotateSlider = document.getElementById("rotateSlider");
+  var scaleControl = document.getElementById("scaleControl");
+  var scaleSlider = document.getElementById("scaleSlider");
+  var zoomSlider = document.getElementById("zoomSlider");
+  var zoomValueDisplay = document.getElementById("zoomValue");
+  var connectBtn = document.getElementById("connectToolBtn");
+  var appContainer = document.getElementById("appContainer");
+  var canvasWrap = document.getElementById("canvasWrap");
+  var deleteBtn = document.getElementById("deleteBtn");
+
+  var shapes = [];
+  var selectedId = null;
+  var nextId = 1;
+  
+  var isDarkMode = false; // Always start in light mode
+  var zoomLevel = 1.0;
+  var isConnecting = false;
+  var connectSourceId = null;
+  
+  var historyStack = [];
+  var redoStack = [];
+
+  function genId() { return nextId++; }
+
+  function saveState() {
+    historyStack.push(JSON.stringify({ shapes: shapes, nextId: nextId }));
+    if (historyStack.length > 50) historyStack.shift();
+    redoStack = [];
+  }
+
+  function undo() {
+    if (historyStack.length === 0) return;
+    var currentState = JSON.stringify({ shapes: shapes, nextId: nextId });
+    redoStack.push(currentState);
+    var prevState = JSON.parse(historyStack.pop());
+    shapes = prevState.shapes;
+    nextId = prevState.nextId;
+    selectedId = null;
+    updateInputState();
+    draw();
+  }
+
+  function redo() {
+    if (redoStack.length === 0) return;
+    var currentState = JSON.stringify({ shapes: shapes, nextId: nextId });
+    historyStack.push(currentState);
+    var nextState = JSON.parse(redoStack.pop());
+    shapes = nextState.shapes;
+    nextId = nextState.nextId;
+    selectedId = null;
+    updateInputState();
+    draw();
+  }
+
+  function deleteSelected() {
+    if (selectedId === null) return;
+    saveState();
+    shapes = shapes.filter(s => s.id !== selectedId);
+    shapes = shapes.filter(s => s.sourceId !== selectedId && s.targetId !== selectedId);
+    selectedId = null;
+    updateInputState();
+    autoSave();
+    draw();
+  }
+
+  window.addEventListener("keydown", function(e) {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); }
+    if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); }
+  });
+
+  function autoSave() {
+    try {
+      localStorage.setItem("info_flow_state", JSON.stringify({ shapes: shapes, nextId: nextId, zoom: zoomLevel }));
+    } catch(e) {}
+  }
+
+  function loadAutoSave() {
+    try {
+      var saved = localStorage.getItem("info_flow_state");
+      if (saved) {
+        var data = JSON.parse(saved);
+        shapes = data.shapes || [];
+        nextId = data.nextId || 1;
+        if (data.zoom) { 
+          zoomLevel = data.zoom; 
+          zoomSlider.value = zoomLevel; 
+          zoomValueDisplay.innerText = Math.round(zoomLevel * 100) + "%";
+          updateZoom(); 
+        }
+        draw();
+        return true;
+      }
+    } catch(e) {}
+    return false;
+  }
+
+  function updateZoom() {
+    canvas.style.width = (1600 * zoomLevel) + "px";
+    canvas.style.height = (1000 * zoomLevel) + "px";
+  }
+
+  zoomSlider.addEventListener("input", function(e) {
+    zoomLevel = parseFloat(e.target.value);
+    zoomValueDisplay.innerText = Math.round(zoomLevel * 100) + "%";
+    updateZoom();
+    autoSave();
+  });
+
+  function toggleDarkMode() {
+    isDarkMode = !isDarkMode;
+    if (isDarkMode) {
+      appContainer.classList.add("dark-mode");
+      canvasWrap.classList.add("dark-mode");
+      document.getElementById("themeToggle").innerText = "☀️ Light Mode";
+    } else {
+      appContainer.classList.remove("dark-mode");
+      canvasWrap.classList.remove("dark-mode");
+      document.getElementById("themeToggle").innerText = "🌙 Dark Mode";
+    }
+    draw();
+  }
+  document.getElementById("themeToggle").addEventListener("click", toggleDarkMode);
+
+  connectBtn.addEventListener("click", function() {
+    isConnecting = !isConnecting;
+    if (isConnecting) {
+      connectBtn.classList.add("active");
+      connectBtn.innerText = "🔗 Connect (Select A)";
+      connectSourceId = null;
+      selectedId = null;
+      updateInputState();
+      draw();
+    } else {
+      connectBtn.classList.remove("active");
+      connectBtn.innerText = "🔗 Connect";
+      connectSourceId = null;
+      draw();
+    }
+  });
+
+  document.getElementById("saveImgBtn").addEventListener("click", function() {
+    var tempCanvas = document.createElement("canvas");
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    var tempCtx = tempCanvas.getContext("2d");
+    tempCtx.fillStyle = isDarkMode ? "#0f172a" : "#ffffff";
+    tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+    var originalCtx = ctx;
+    ctx = tempCtx;
+    drawGrid();
+    for (var i = 0; i < shapes.length; i++) { drawShape(shapes[i], false); }
+    ctx = originalCtx;
+    var link = document.createElement("a");
+    link.download = "InformationFlowDiagram.png";
+    link.href = tempCanvas.toDataURL("image/png");
+    link.click();
+  });
+
+  function pointInRect(px, py, rx, ry, rw, rh) { return px >= rx && px <= rx + rw && py >= ry && py <= ry + rh; }
+  function pointInArrow(px, py, x1, y1, x2, y2) {
+    var minX = Math.min(x1, x2) - 15, maxX = Math.max(x1, x2) + 15; var minY = Math.min(y1, y2) - 15, maxY = Math.max(y1, y2) + 15;
+    return px >= minX && px <= maxX && py >= minY && py <= maxY;
+  }
+
+  function getShapeAt(x, y) {
+    for (var i = shapes.length - 1; i >= 0; i--) {
+      var s = shapes[i];
+      if (s.type === "arrow" && pointInArrow(x, y, s.x1, s.y1, s.x2, s.y2)) return s;
+      if (s.type === "box" && pointInRect(x, y, s.x, s.y, s.w, s.h)) return s;
+    }
+    return null;
+  }
+
+  function moveShape(shape, dx, dy) {
+    if (shape.type === "arrow") { shape.x1 += dx; shape.y1 += dy; shape.x2 += dx; shape.y2 += dy; }
+    else { shape.x += dx; shape.y += dy; }
+    
+    if (shape.type !== "arrow") {
+      for (var i = 0; i < shapes.length; i++) {
+        var s = shapes[i];
+        if (s.type === "arrow" && (s.sourceId === shape.id || s.targetId === shape.id)) {
+          if (s.sourceId === shape.id) { var newPt1 = getClosestPoint(shape, s.x2, s.y2); s.x1 = newPt1.x; s.y1 = newPt1.y; }
+          if (s.targetId === shape.id) { var newPt2 = getClosestPoint(shape, s.x1, s.y1); s.x2 = newPt2.x; s.y2 = newPt2.y; }
+        }
+      }
+    }
+  }
+
+  function getClosestPoint(shape, targetX, targetY) {
+    var cx = shape.x + shape.w / 2; var cy = shape.y + shape.h / 2;
+    return { x: cx, y: cy };
+  }
+
+  var defaultStroke = "#1f2937";
+  var defaultWidth = 3;
+
+  function makeBox(x, y) { 
+    return { id: genId(), type: "box", x: x - 60, y: y - 35, w: 120, h: 70, fill: "#e8f5e9", stroke: defaultStroke, lineWidth: defaultWidth, label: "Box", scale: 1 }; 
+  }
+  function makeArrow(x, y) { 
+    return { id: genId(), type: "arrow", x1: x - 60, y1: y, x2: x + 60, y2: y, fill: defaultStroke, stroke: defaultStroke, lineWidth: 3, label: "Information", scale: 1 }; 
+  }
+
+  function resetScene() {
+    shapes = []; nextId = 1; selectedId = null;
+    rotateControl.style.display = "none"; scaleControl.style.display = "none";
+    
+    // Default starter layout
+    var cx = 750, cy = 400;
+    
+    var s1 = makeBox(cx - 200, cy); s1.label = "Source A"; shapes.push(s1);
+    var a1 = makeArrow(cx, cy); a1.x1 = cx - 140; a1.x2 = cx + 140; a1.y1 = cy; a1.y2 = cy; shapes.push(a1);
+    var s2 = makeBox(cx + 200, cy); s2.label = "Dest B"; shapes.push(s2);
+    
+    saveState();
+    autoSave();
+    draw();
+  }
+
+  function drawArrowHead(x, y, angle, size, color) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-size, -size * 0.6); ctx.lineTo(-size, size * 0.6);
+    ctx.closePath(); ctx.fillStyle = color; ctx.fill(); ctx.restore();
+  }
+
+  function drawLabel(shape) {
+    if (!shape.label) return;
+    ctx.save(); 
+    ctx.fillStyle = isDarkMode ? "#1e3a8a" : "#1e293b"; 
+    var fontSize = 15 * (shape.scale || 1);
+    ctx.font = "600 " + fontSize + "px system-ui, 'Segoe UI', Roboto, sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+
+    if (shape.type === "arrow") {
+      var cx = (shape.x1 + shape.x2) / 2; var cy = (shape.y1 + shape.y2) / 2;
+      var angle = Math.atan2(shape.y2 - shape.y1, shape.x2 - shape.x1);
+      ctx.translate(cx, cy); ctx.rotate(angle);
+      var lines = shape.label.split('\n'); var lineHeight = 20;
+      var startY = -16 - ((lines.length - 1) * lineHeight) / 2;
+      for (var i = 0; i < lines.length; i++) {
+        var textWidth = ctx.measureText(lines[i]).width;
+        ctx.fillStyle = isDarkMode ? "#1e293b" : "#ffffff"; 
+        ctx.fillRect(-textWidth/2 - 4, startY + (i * lineHeight) - 9, textWidth + 8, 18);
+        ctx.fillStyle = isDarkMode ? "#f8fafc" : "#1e293b"; 
+        ctx.fillText(lines[i], 0, startY + (i * lineHeight));
+      }
+      ctx.restore(); return;
+    }
+
+    var cx = shape.x + shape.w / 2; var cy = shape.y + shape.h / 2;
+    var lines = shape.label.split('\n'); var lineHeight = 20;
+    var startY = cy - ((lines.length - 1) * lineHeight) / 2;
+    for (var i = 0; i < lines.length; i++) { ctx.fillText(lines[i], cx, startY + (i * lineHeight)); }
+    ctx.restore();
+  }
+
+  function drawGrid() {
+    ctx.save(); 
+    ctx.strokeStyle = isDarkMode ? "#1e293b" : "#e2e8f0"; 
+    ctx.lineWidth = 1;
+    for (var x = 0; x < canvas.width; x += 20) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
+    for (var y = 0; y < canvas.height; y += 20) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }
+    ctx.restore();
+  }
+
+  function drawShape(shape, isSelected) {
+    ctx.save(); 
+    ctx.lineWidth = shape.lineWidth || 3; 
+    ctx.fillStyle = shape.fill || "#ffffff"; 
+    ctx.strokeStyle = shape.stroke || "#1f2937";
+    ctx.lineJoin = "round";
+
+    if (shape.type === "box") {
+      ctx.beginPath(); ctx.rect(shape.x, shape.y, shape.w, shape.h); ctx.fill(); ctx.stroke();
+    } 
+    else if (shape.type === "arrow") {
+      ctx.strokeStyle = isDarkMode ? "#cbd5e1" : "#1f2937"; 
+      ctx.beginPath(); ctx.moveTo(shape.x1, shape.y1); ctx.lineTo(shape.x2, shape.y2);
+      ctx.lineWidth = 3; ctx.stroke();
+      var angle = Math.atan2(shape.y2 - shape.y1, shape.x2 - shape.x1); drawArrowHead(shape.x2, shape.y2, angle, 15, isDarkMode ? "#cbd5e1" : "#1f2937");
+    }
+
+    drawLabel(shape);
+
+    if (isSelected) {
+      ctx.lineWidth = 2.5; ctx.strokeStyle = "#3b82f6"; ctx.setLineDash([6, 4]);
+      if (shape.type === "arrow") { ctx.beginPath(); ctx.moveTo(shape.x1, shape.y1); ctx.lineTo(shape.x2, shape.y2); ctx.stroke(); }
+      else { ctx.strokeRect(shape.x - 6, shape.y - 6, shape.w + 12, shape.h + 12); }
+      ctx.setLineDash([]);
+    }
+    
+    if (isConnecting && shape.id === connectSourceId) {
+      ctx.lineWidth = 4; ctx.strokeStyle = "#f59e0b"; ctx.setLineDash([]);
+      ctx.strokeRect(shape.x - 10, shape.y - 10, shape.w + 20, shape.h + 20);
+    }
+
+    ctx.restore();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawGrid();
+    for (var i = 0; i < shapes.length; i++) { drawShape(shapes[i], shapes[i].id === selectedId); }
+  }
+
+  function getCanvasCoords(evt) {
+    var rect = canvas.getBoundingClientRect(); var scaleX = canvas.width / rect.width; var scaleY = canvas.height / rect.height;
+    return { x: (evt.clientX - rect.left) * scaleX, y: (evt.clientY - rect.top) * scaleY };
+  }
+
+  var dragging = false; var dragShapeId = null; var lastX = 0, lastY = 0;
+
+  function updateInputState() {
+    if (selectedId === null) {
+      textInput.value = ""; textInput.disabled = true; textInput.placeholder = "Select a shape...";
+      rotateControl.style.display = "none"; scaleControl.style.display = "none";
+      deleteBtn.disabled = true;
+    } else {
+      var shape = shapes.find(s => s.id === selectedId);
+      if (shape) {
+        textInput.value = shape.label || ""; textInput.disabled = false; textInput.placeholder = "Type label...";
+        scaleControl.style.display = "flex"; scaleSlider.value = shape.scale || 1.0;
+        deleteBtn.disabled = false;
+        if (shape.type === "arrow") {
+          rotateControl.style.display = "flex";
+          var angleRad = Math.atan2(shape.y2 - shape.y1, shape.x2 - shape.x1);
+          var angleDeg = Math.round(angleRad * 180 / Math.PI);
+          if (angleDeg < 0) angleDeg += 360;
+          rotateSlider.value = angleDeg;
+        } else { rotateControl.style.display = "none"; }
+      }
+    }
+  }
+
+  function onDown(evt) {
+    evt.preventDefault(); var p = getCanvasCoords(evt); var shape = getShapeAt(p.x, p.y);
+    
+    if (isConnecting) {
+      if (shape) {
+        if (connectSourceId === null) {
+          connectSourceId = shape.id; connectBtn.innerText = "🔗 Connect (Select B)"; draw();
+        } else {
+          if (shape.id !== connectSourceId) {
+            var sourceShape = shapes.find(s => s.id === connectSourceId);
+            var pt1 = getClosestPoint(sourceShape, shape.x, shape.y);
+            var pt2 = getClosestPoint(shape, pt1.x, pt1.y);
+            var newArrow = {
+              id: genId(), type: "arrow", x1: pt1.x, y1: pt1.y, x2: pt2.x, y2: pt2.y, fill: defaultStroke, stroke: defaultStroke, lineWidth: 3, label: "Information", scale: 1,
+              sourceId: sourceShape.id, targetId: shape.id
+            };
+            shapes.push(newArrow); saveState(); autoSave();
+            isConnecting = false; connectBtn.classList.remove("active"); connectBtn.innerText = "🔗 Connect"; connectSourceId = null;
+            selectedId = newArrow.id; updateInputState(); draw();
+          }
+        }
+      }
+      return;
+    }
+    
+    if (shape) {
+      selectedId = shape.id; var idx = shapes.indexOf(shape); if (idx > -1) { shapes.splice(idx, 1); shapes.push(shape); }
+      dragging = true; dragShapeId = shape.id; lastX = p.x; lastY = p.y; saveState();
+      if (canvas.setPointerCapture && evt.pointerId !== undefined) { try { canvas.setPointerCapture(evt.pointerId); } catch (e) {} }
+    } else { selectedId = null; dragging = false; }
+    updateInputState(); draw();
+  }
+
+  function onMove(evt) {
+    if (!dragging || dragShapeId === null) return;
+    evt.preventDefault(); var p = getCanvasCoords(evt); var dx = p.x - lastX, dy = p.y - lastY;
+    if (dx === 0 && dy === 0) return;
+    var shape = shapes.find(s => s.id === dragShapeId);
+    if (shape) { moveShape(shape, dx, dy); lastX = p.x; lastY = p.y; draw(); }
+  }
+
+  function onUp() { if (!dragging) return; dragging = false; dragShapeId = null; autoSave(); draw(); }
+
+  canvas.addEventListener("pointerdown", onDown);
+  canvas.addEventListener("pointermove", onMove);
+  canvas.addEventListener("pointerup", onUp);
+  canvas.addEventListener("pointercancel", onUp);
+  canvas.addEventListener("pointerleave", onUp);
+
+  textInput.addEventListener("input", function(e) {
+    if (selectedId === null) return; var shape = shapes.find(s => s.id === selectedId);
+    if (shape) { shape.label = e.target.value; draw(); saveState(); autoSave(); }
+  });
+  textInput.addEventListener("keydown", function(e) { if (e.key === "Enter") textInput.blur(); });
+
+  rotateSlider.addEventListener("input", function(e) {
+    if (selectedId === null) return; var shape = shapes.find(s => s.id === selectedId);
+    if (shape && shape.type === "arrow") {
+      var cx = (shape.x1 + shape.x2) / 2, cy = (shape.y1 + shape.y2) / 2;
+      var len = Math.hypot(shape.x2 - shape.x1, shape.y2 - shape.y1); var halfLen = len / 2;
+      var angleDeg = parseFloat(e.target.value); var angleRad = angleDeg * Math.PI / 180;
+      shape.x1 = cx - Math.cos(angleRad) * halfLen; shape.y1 = cy - Math.sin(angleRad) * halfLen;
+      shape.x2 = cx + Math.cos(angleRad) * halfLen; shape.y2 = cy + Math.sin(angleRad) * halfLen;
+      draw(); saveState(); autoSave();
+    }
+  });
+
+  scaleSlider.addEventListener("input", function(e) {
+    if (selectedId === null) return; var shape = shapes.find(s => s.id === selectedId);
+    if (shape) {
+      var newScale = parseFloat(e.target.value); var oldScale = shape.scale || 1;
+      if (shape.type === "arrow") {
+        var cx = (shape.x1 + shape.x2) / 2; var cy = (shape.y1 + shape.y2) / 2;
+        var len = Math.hypot(shape.x2 - shape.x1, shape.y2 - shape.y1); var newLen = len * (newScale / oldScale);
+        var angle = Math.atan2(shape.y2 - shape.y1, shape.x2 - shape.x1);
+        shape.x1 = cx - Math.cos(angle) * (newLen / 2); shape.y1 = cy - Math.sin(angle) * (newLen / 2);
+        shape.x2 = cx + Math.cos(angle) * (newLen / 2); shape.y2 = cy + Math.sin(angle) * (newLen / 2);
+      } else {
+        var ratio = newScale / oldScale; var cx = shape.x + shape.w / 2; var cy = shape.y + shape.h / 2;
+        shape.w *= ratio; shape.h *= ratio;
+        shape.x = cx - shape.w / 2; shape.y = cy - shape.h / 2;
+      }
+      shape.scale = newScale; draw(); saveState(); autoSave();
+    }
+  });
+
+  document.getElementById("resetBtn").addEventListener("click", function() {
+    if(confirm("Are you sure you want to clear the canvas? All work will be lost.")) {
+      localStorage.removeItem("info_flow_state");
+      resetScene();
+    }
+  });
+  document.getElementById("closeBtn").addEventListener("click", function() {
+    window.close();
+    setTimeout(function() { alert("Your browser blocked the automatic tab closure.\nPlease close this tab manually."); }, 100);
+  });
+  document.getElementById("undoBtn").addEventListener("click", undo);
+  document.getElementById("redoBtn").addEventListener("click", redo);
+  deleteBtn.addEventListener("click", deleteSelected);
+
+  function addNewShape(factoryFn) {
+    var wrap = document.getElementById("canvasWrap"); var centerX = wrap.scrollLeft + (wrap.clientWidth / 2); var centerY = wrap.scrollTop + (wrap.clientHeight / 2);
+    centerX += (Math.random() * 40 - 20); centerY += (Math.random() * 40 - 20);
+    var newShape = factoryFn(centerX, centerY); shapes.push(newShape); selectedId = newShape.id;
+    saveState(); autoSave();
+    updateInputState(); draw();
+  }
+
+  document.getElementById("addBox").addEventListener("click", function() { addNewShape(makeBox); });
+  document.getElementById("addArrow").addEventListener("click", function() { addNewShape(makeArrow); });
+
+  if (!loadAutoSave()) {
+    resetScene();
+  }
+})();
+</script>
+</body>
+</html>
